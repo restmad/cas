@@ -94,8 +94,6 @@ public class SecurityTokenServiceTokenFetcherTests {
             + WSFederationConstants.WREPLY + '=' + registeredService.getServiceId() + '&'
             + WSFederationConstants.WTREALM + '=' + realm);
 
-        assertThrows(AuthenticationException.class, () -> {
-            securityTokenServiceTokenFetcher.fetch(service, "test");
-        });
+        assertThrows(AuthenticationException.class, () -> securityTokenServiceTokenFetcher.fetch(service, "test"));
     }
 }
