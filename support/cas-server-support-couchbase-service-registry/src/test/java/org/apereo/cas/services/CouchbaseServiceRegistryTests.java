@@ -5,6 +5,7 @@ import org.apereo.cas.util.junit.EnabledIfContinuousIntegration;
 
 import lombok.SneakyThrows;
 import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.parallel.ResourceLock;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -29,6 +30,7 @@ import org.springframework.context.event.EventListener;
     })
 @Tag("couchbase")
 @EnabledIfContinuousIntegration
+@ResourceLock("couchbase")
 public class CouchbaseServiceRegistryTests extends AbstractServiceRegistryTests {
 
     @Autowired
@@ -46,12 +48,12 @@ public class CouchbaseServiceRegistryTests extends AbstractServiceRegistryTests 
         @SneakyThrows
         @EventListener
         public void handleCouchbaseSaveEvent(final CouchbaseRegisteredServiceSavedEvent event) {
-            Thread.sleep(200);
+            Thread.sleep(100);
         }
         @SneakyThrows
         @EventListener
         public void handleCouchbaseDeleteEvent(final CouchbaseRegisteredServiceDeletedEvent event) {
-            Thread.sleep(200);
+            Thread.sleep(100);
         }
     }
 }
