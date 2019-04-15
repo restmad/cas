@@ -13,14 +13,15 @@ import org.apereo.cas.util.CollectionUtils;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.val;
 import org.apache.commons.io.FileUtils;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.Collections;
+import java.util.List;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Tests for RememberMeDelegatingExpirationPolicy.
@@ -43,12 +44,12 @@ public class RememberMeDelegatingExpirationPolicyTests {
 
     private RememberMeDelegatingExpirationPolicy expirationPolicy;
 
-    @Before
+    @BeforeEach
     public void initialize() {
         val rememberMe = new MultiTimeUseOrTimeoutExpirationPolicy(1, REMEMBER_ME_TTL);
-        expirationPolicy = new RememberMeDelegatingExpirationPolicy(rememberMe);
-        expirationPolicy.addPolicy(RememberMeDelegatingExpirationPolicy.PolicyTypes.REMEMBER_ME, rememberMe);
-        expirationPolicy.addPolicy(RememberMeDelegatingExpirationPolicy.PolicyTypes.DEFAULT,
+        expirationPolicy = new RememberMeDelegatingExpirationPolicy();
+        expirationPolicy.addPolicy(RememberMeDelegatingExpirationPolicy.POLICY_NAME_REMEMBER_ME, rememberMe);
+        expirationPolicy.addPolicy(RememberMeDelegatingExpirationPolicy.POLICY_NAME_DEFAULT,
             new MultiTimeUseOrTimeoutExpirationPolicy(5, DEFAULT_TTL));
     }
 
@@ -56,7 +57,7 @@ public class RememberMeDelegatingExpirationPolicyTests {
     public void verifyTicketExpirationWithRememberMe() {
         val authentication = CoreAuthenticationTestUtils.getAuthentication(
             this.principalFactory.createPrincipal("test"),
-            Collections.singletonMap(RememberMeCredential.AUTHENTICATION_ATTRIBUTE_REMEMBER_ME, true));
+            Collections.singletonMap(RememberMeCredential.AUTHENTICATION_ATTRIBUTE_REMEMBER_ME, List.of(true)));
         val t = new TicketGrantingTicketImpl("111", authentication, this.expirationPolicy);
         assertFalse(t.isExpired());
         t.grantServiceTicket("55", RegisteredServiceTestUtils.getService(), this.expirationPolicy, false, true);
@@ -93,7 +94,7 @@ public class RememberMeDelegatingExpirationPolicyTests {
         val authentication = CoreAuthenticationTestUtils.getAuthentication(
             this.principalFactory.createPrincipal("test"),
             Collections.singletonMap(
-                RememberMeCredential.AUTHENTICATION_ATTRIBUTE_REMEMBER_ME, true));
+                RememberMeCredential.AUTHENTICATION_ATTRIBUTE_REMEMBER_ME, List.of(true)));
         val t = new TicketGrantingTicketImpl("111", authentication, this.expirationPolicy);
         assertEquals(REMEMBER_ME_TTL, expirationPolicy.getTimeToLive(t));
     }

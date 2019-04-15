@@ -1,5 +1,6 @@
 package org.apereo.cas.util;
 
+import com.google.common.base.Splitter;
 import com.google.common.collect.Multimap;
 import lombok.SneakyThrows;
 import lombok.experimental.UtilityClass;
@@ -12,14 +13,17 @@ import org.springframework.util.MultiValueMap;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.stream.Collectors;
 
 /**
@@ -75,7 +79,7 @@ public class CollectionUtils {
     public static Set<Object> toCollection(final Object obj) {
         val c = new LinkedHashSet<Object>();
         if (obj == null) {
-            LOGGER.debug("Converting null obj to empty collection");
+            LOGGER.trace("Converting null obj to empty collection");
         } else if (obj instanceof Collection) {
             c.addAll((Collection<Object>) obj);
             LOGGER.trace("Converting multi-valued element [{}]", obj);
@@ -90,6 +94,16 @@ public class CollectionUtils {
                 c.addAll(Arrays.stream((Object[]) obj).collect(Collectors.toSet()));
             }
             LOGGER.trace("Converting array element [{}]", obj);
+        } else if (obj instanceof Iterator) {
+            val it = (Iterator) obj;
+            while (it.hasNext()) {
+                c.add(it.next());
+            }
+        } else if (obj instanceof Enumeration) {
+            val it = (Enumeration) obj;
+            while (it.hasMoreElements()) {
+                c.add(it.nextElement());
+            }
         } else {
             c.add(obj);
             LOGGER.trace("Converting element [{}]", obj);
@@ -457,6 +471,24 @@ public class CollectionUtils {
     public static MultiValueMap asMultiValueMap(final String key1, final Object value1, final String key2, final Object value2) {
         val wrap = (Map) wrap(key1, wrapList(value1), key2, wrapList(value2));
         return org.springframework.util.CollectionUtils.toMultiValueMap(wrap);
+    }
+
+    /**
+     * Convert directed list to map.
+     *
+     * @param inputList the input list
+     * @return the map
+     */
+    public static Map<String, String> convertDirectedListToMap(final List<String> inputList) {
+        val mappings = new TreeMap<String, String>();
+        inputList
+            .stream()
+            .map(s -> {
+                val bits = Splitter.on("->").splitToList(s);
+                return Pair.of(bits.get(0), bits.get(1));
+            })
+            .forEach(p -> mappings.put(p.getKey(), p.getValue()));
+        return mappings;
     }
 
     private static <T> void addToCollection(final Collection<T> list, final T[] source) {

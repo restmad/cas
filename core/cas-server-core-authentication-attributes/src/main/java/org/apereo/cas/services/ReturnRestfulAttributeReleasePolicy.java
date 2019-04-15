@@ -1,6 +1,7 @@
 package org.apereo.cas.services;
 
 import org.apereo.cas.authentication.principal.Principal;
+import org.apereo.cas.authentication.principal.Service;
 import org.apereo.cas.util.CollectionUtils;
 import org.apereo.cas.util.HttpUtils;
 
@@ -22,6 +23,7 @@ import org.apache.http.HttpStatus;
 
 import java.io.StringWriter;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -46,11 +48,13 @@ public class ReturnRestfulAttributeReleasePolicy extends AbstractRegisteredServi
     private String endpoint;
 
     @Override
-    public Map<String, Object> getAttributesInternal(final Principal principal, final Map<String, Object> attributes, final RegisteredService service) {
+    public Map<String, List<Object>> getAttributesInternal(final Principal principal, final Map<String, List<Object>> attributes,
+                                                     final RegisteredService registeredService, final Service selectedService) {
         HttpResponse response = null;
         try (val writer = new StringWriter()) {
             MAPPER.writer(new MinimalPrettyPrinter()).writeValue(writer, attributes);
-            response = HttpUtils.executePost(this.endpoint, writer.toString(), CollectionUtils.wrap("principal", principal.getId(), "service", service.getServiceId()));
+            response = HttpUtils.executePost(this.endpoint, writer.toString(),
+                CollectionUtils.wrap("principal", principal.getId(), "service", registeredService.getServiceId()));
             if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
                 return MAPPER.readValue(response.getEntity().getContent(), new TypeReference<Map<String, Object>>() {
                 });

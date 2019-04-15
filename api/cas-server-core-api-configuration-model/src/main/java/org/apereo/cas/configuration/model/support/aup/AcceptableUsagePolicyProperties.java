@@ -7,6 +7,7 @@ import org.apereo.cas.configuration.model.support.mongo.SingleCollectionMongoDbP
 import org.apereo.cas.configuration.support.RequiredProperty;
 import org.apereo.cas.configuration.support.RequiresModule;
 import org.apereo.cas.configuration.support.RestEndpointProperties;
+import org.apereo.cas.configuration.support.SpringResourceProperties;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -50,6 +51,11 @@ public class AcceptableUsagePolicyProperties implements Serializable {
      * Keep consent decisions stored via a MongoDb database resource.
      */
     private MongoDb mongo = new MongoDb();
+
+    /**
+     * Keep consent decisions stored via a Groovy script.
+     */
+    private Groovy groovy = new Groovy();
 
     /**
      * AUP enabled allows AUP to be turned off on startup.
@@ -120,6 +126,30 @@ public class AcceptableUsagePolicyProperties implements Serializable {
          * The table name in the database that holds the AUP attribute to update for the user.
          */
         private String tableName;
+        
+        /**
+         * The column to store the AUP attribute. May differ from the profile attribute defined by {@link #aupAttributeName}.
+         * SQL query can be further customized by setting {@link #sqlUpdateAUP}.
+         */
+        private String aupColumn;
+        
+        /**
+         * The column to idetify the principal.
+         * SQL query can be further customized by setting {@link #sqlUpdateAUP}.
+         */
+        private String principalIdColumn = "username";
+        
+        /**
+         * The profile attribute to extract the value for the {@link #principalIdColumn} used in the WHERE clause
+         * of {@link #sqlUpdateAUP}. If empty, the principal ID will be used.
+         */
+        private String principalIdAttribute;
+        
+        /**
+         * The query template to update the AUP attribute.
+         * %s placeholders represent {@link #tableName}, {@link #aupColumn}, {@link #principalIdColumn} settings.
+         */
+        private String sqlUpdateAUP = "UPDATE %s SET %s=true WHERE %s=?";
     }
 
     @RequiresModule(name = "cas-server-support-aup-rest")
@@ -135,5 +165,12 @@ public class AcceptableUsagePolicyProperties implements Serializable {
     public static class Ldap extends AbstractLdapSearchProperties {
 
         private static final long serialVersionUID = -7991011278378393382L;
+    }
+
+    @RequiresModule(name = "cas-server-support-aup-core", automated = true)
+    @Getter
+    @Setter
+    public static class Groovy extends SpringResourceProperties {
+        private static final long serialVersionUID = 9164227843747126083L;
     }
 }

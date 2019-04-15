@@ -5,6 +5,7 @@ import org.apereo.cas.authentication.PseudoPlatformTransactionManager;
 import org.apereo.cas.configuration.CasConfigurationProperties;
 import org.apereo.cas.configuration.model.core.CasJavaClientProperties;
 import org.apereo.cas.logout.LogoutManager;
+import org.apereo.cas.services.ServicesManager;
 import org.apereo.cas.ticket.DefaultTicketCatalog;
 import org.apereo.cas.ticket.ExpirationPolicy;
 import org.apereo.cas.ticket.ServiceTicket;
@@ -107,10 +108,13 @@ public class CasCoreTicketsConfiguration implements TransactionManagementConfigu
     @Autowired
     private CasConfigurationProperties casProperties;
 
-    @Lazy
+    @Autowired
+    @Qualifier("servicesManager")
+    private ObjectProvider<ServicesManager> servicesManager;
+
     @Autowired
     @Qualifier("uniqueIdGeneratorsMap")
-    private Map<String, UniqueTicketIdGenerator> uniqueIdGeneratorsMap;
+    private ObjectProvider<Map<String, UniqueTicketIdGenerator>> uniqueIdGeneratorsMap;
 
     @Autowired
     @Qualifier("ticketRegistry")
@@ -178,9 +182,10 @@ public class CasCoreTicketsConfiguration implements TransactionManagementConfigu
     public ProxyTicketFactory defaultProxyTicketFactory() {
         val onlyTrackMostRecentSession = casProperties.getTicket().getTgt().isOnlyTrackMostRecentSession();
         return new DefaultProxyTicketFactory(proxyTicketExpirationPolicy(),
-            uniqueIdGeneratorsMap,
+            uniqueIdGeneratorsMap.getIfAvailable(),
             protocolTicketCipherExecutor(),
-            onlyTrackMostRecentSession);
+            onlyTrackMostRecentSession,
+            servicesManager.getIfAvailable());
     }
 
     @ConditionalOnMissingBean(name = "proxyGrantingTicketUniqueIdGenerator")
@@ -229,9 +234,10 @@ public class CasCoreTicketsConfiguration implements TransactionManagementConfigu
     public ServiceTicketFactory defaultServiceTicketFactory() {
         val onlyTrackMostRecentSession = casProperties.getTicket().getTgt().isOnlyTrackMostRecentSession();
         return new DefaultServiceTicketFactory(serviceTicketExpirationPolicy(),
-            uniqueIdGeneratorsMap,
+            uniqueIdGeneratorsMap.getIfAvailable(),
             onlyTrackMostRecentSession,
-            protocolTicketCipherExecutor());
+            protocolTicketCipherExecutor(),
+            servicesManager.getIfAvailable());
     }
 
     @ConditionalOnMissingBean(name = "defaultTicketGrantingTicketFactory")
@@ -294,19 +300,24 @@ public class CasCoreTicketsConfiguration implements TransactionManagementConfigu
     public ExpirationPolicy grantingTicketExpirationPolicy() {
         val tgt = casProperties.getTicket().getTgt();
         if (tgt.getRememberMe().isEnabled()) {
-            return rememberMeExpirationPolicy();
+            val p = rememberMeExpirationPolicy();
+            LOGGER.debug("Final effective time-to-live of remember-me expiration policy is [{}] seconds", p.getTimeToLive());
+            return p;
         }
-        return ticketGrantingTicketExpirationPolicy();
+        val p = ticketGrantingTicketExpirationPolicy();
+        LOGGER.debug("Final effective time-to-live of ticket-granting ticket expiration policy is [{}] seconds", p.getTimeToLive());
+        return p;
     }
 
     @Bean
     public ExpirationPolicy rememberMeExpirationPolicy() {
         val tgt = casProperties.getTicket().getTgt();
-
+        LOGGER.debug("Remember me expiration policy is being configured based on hard timeout of [{}] seconds",
+            tgt.getRememberMe().getTimeToKillInSeconds());
         val rememberMePolicy = new HardTimeoutExpirationPolicy(tgt.getRememberMe().getTimeToKillInSeconds());
-        val p = new RememberMeDelegatingExpirationPolicy(ticketGrantingTicketExpirationPolicy());
-        p.addPolicy(RememberMeDelegatingExpirationPolicy.PolicyTypes.REMEMBER_ME, rememberMePolicy);
-        p.addPolicy(RememberMeDelegatingExpirationPolicy.PolicyTypes.DEFAULT, ticketGrantingTicketExpirationPolicy());
+        val p = new RememberMeDelegatingExpirationPolicy();
+        p.addPolicy(RememberMeDelegatingExpirationPolicy.POLICY_NAME_REMEMBER_ME, rememberMePolicy);
+        p.addPolicy(RememberMeDelegatingExpirationPolicy.POLICY_NAME_DEFAULT, ticketGrantingTicketExpirationPolicy());
         return p;
     }
 
@@ -372,12 +383,6 @@ public class CasCoreTicketsConfiguration implements TransactionManagementConfigu
             return new TimeoutExpirationPolicy(tgt.getTimeout().getMaxTimeToLiveInSeconds());
         }
 
-        if (tgt.getMaxTimeToLiveInSeconds() > 0 && tgt.getTimeToKillInSeconds() > 0) {
-            LOGGER.debug("Ticket-granting ticket expiration policy is based on hard/idle timeouts of [{}]/[{}] seconds",
-                tgt.getMaxTimeToLiveInSeconds(), tgt.getTimeToKillInSeconds());
-            return new TicketGrantingTicketExpirationPolicy(tgt.getMaxTimeToLiveInSeconds(), tgt.getTimeToKillInSeconds());
-        }
-
         if (tgt.getThrottledTimeout().getTimeInBetweenUsesInSeconds() > 0
             && tgt.getThrottledTimeout().getTimeToKillInSeconds() > 0) {
             val p = new ThrottledUseAndTimeoutExpirationPolicy();
@@ -391,6 +396,12 @@ public class CasCoreTicketsConfiguration implements TransactionManagementConfigu
             LOGGER.debug("Ticket-granting ticket expiration policy is based on a hard timeout of [{}] seconds",
                 tgt.getHardTimeout().getTimeToKillInSeconds());
             return new HardTimeoutExpirationPolicy(tgt.getHardTimeout().getTimeToKillInSeconds());
+        }
+
+        if (tgt.getMaxTimeToLiveInSeconds() > 0 && tgt.getTimeToKillInSeconds() > 0) {
+            LOGGER.debug("Ticket-granting ticket expiration policy is based on hard/idle timeouts of [{}]/[{}] seconds",
+                tgt.getMaxTimeToLiveInSeconds(), tgt.getTimeToKillInSeconds());
+            return new TicketGrantingTicketExpirationPolicy(tgt.getMaxTimeToLiveInSeconds(), tgt.getTimeToKillInSeconds());
         }
         LOGGER.warn("Ticket-granting ticket expiration policy is set to ALWAYS expire tickets.");
         return new AlwaysExpiresExpirationPolicy();

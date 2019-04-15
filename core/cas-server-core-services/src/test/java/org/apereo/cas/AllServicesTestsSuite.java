@@ -7,8 +7,11 @@ import org.apereo.cas.authentication.principal.ShibbolethCompatiblePersistentIdG
 import org.apereo.cas.authentication.principal.SimpleWebApplicationServiceImplTests;
 import org.apereo.cas.authentication.principal.WebApplicationServiceFactoryTests;
 import org.apereo.cas.services.AnonymousRegisteredServiceUsernameAttributeProviderTests;
+import org.apereo.cas.services.ChainingRegisteredServiceSingleSignOnParticipationPolicyTests;
 import org.apereo.cas.services.DefaultRegisteredServiceAccessStrategyTests;
 import org.apereo.cas.services.DefaultRegisteredServiceMultifactorPolicyTests;
+import org.apereo.cas.services.DefaultRegisteredServiceProxyTicketExpirationPolicyTests;
+import org.apereo.cas.services.DefaultRegisteredServiceServiceTicketExpirationPolicyTests;
 import org.apereo.cas.services.DefaultRegisteredServiceUsernameProviderTests;
 import org.apereo.cas.services.DefaultServicesManagerByEnvironmentTests;
 import org.apereo.cas.services.DefaultServicesManagerTests;
@@ -36,8 +39,7 @@ import org.apereo.cas.services.support.RegisteredServiceRegexAttributeFilterTest
 import org.apereo.cas.services.support.RegisteredServiceScriptedAttributeFilterTests;
 import org.apereo.cas.util.services.DefaultRegisteredServiceJsonSerializerTests;
 
-import org.junit.runner.RunWith;
-import org.junit.runners.Suite;
+import org.junit.platform.suite.api.SelectClasses;
 
 /**
  * This is {@link AllServicesTestsSuite}.
@@ -45,8 +47,7 @@ import org.junit.runners.Suite;
  * @author Misagh Moayyed
  * @since 5.0.0
  */
-@RunWith(Suite.class)
-@Suite.SuiteClasses({
+@SelectClasses({
     HttpBasedServiceCredentialsAuthenticationHandlerTests.class,
     HttpBasedServiceCredentialTests.class,
     AnonymousRegisteredServiceUsernameAttributeProviderTests.class,
@@ -71,6 +72,9 @@ import org.junit.runners.Suite;
     UnauthorizedServiceExceptionTests.class,
     UnauthorizedSsoServiceExceptionTests.class,
     ResponseTests.class,
+    ChainingRegisteredServiceSingleSignOnParticipationPolicyTests.class,
+    DefaultRegisteredServiceProxyTicketExpirationPolicyTests.class,
+    DefaultRegisteredServiceServiceTicketExpirationPolicyTests.class,
     DefaultServicesManagerByEnvironmentTests.class,
     ScriptedRegisteredServiceUsernameProviderTests.class,
     RemoteEndpointServiceAccessStrategyTests.class,

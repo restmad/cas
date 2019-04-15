@@ -17,7 +17,9 @@ import org.apereo.cas.util.crypto.PrivateKeyFactoryBean;
 import org.apereo.cas.validation.DefaultServiceTicketValidationAuthorizersExecutionPlan;
 import org.apereo.cas.web.AbstractServiceValidateController;
 import org.apereo.cas.web.AbstractServiceValidateControllerTests;
-import org.apereo.cas.web.ServiceValidateController;
+import org.apereo.cas.web.ServiceValidateConfigurationContext;
+import org.apereo.cas.web.ServiceValidationViewFactory;
+import org.apereo.cas.web.v2.ServiceValidateController;
 import org.apereo.cas.web.view.attributes.DefaultCas30ProtocolAttributesRenderer;
 
 import lombok.SneakyThrows;
@@ -26,7 +28,7 @@ import lombok.val;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apereo.services.persondir.IPersonAttributeDao;
 import org.apereo.services.persondir.support.StubPersonAttributeDao;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -50,7 +52,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.Optional;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Unit tests for {@link Cas30ResponseView}.
@@ -65,38 +67,29 @@ import static org.junit.Assert.*;
 public class Cas30ResponseViewTests extends AbstractServiceValidateControllerTests {
 
     @Autowired
+    @Qualifier("serviceValidationViewFactory")
+    protected ServiceValidationViewFactory serviceValidationViewFactory;
+
+    @Autowired
     @Qualifier("servicesManager")
     protected ServicesManager servicesManager;
 
-    @Autowired
-    @Qualifier("cas3ServiceJsonView")
-    private View cas3ServiceJsonView;
-
-    @Autowired
-    @Qualifier("cas3SuccessView")
-    private View cas3SuccessView;
-
-    @Autowired
-    @Qualifier("cas3ServiceFailureView")
-    private View cas3ServiceFailureView;
-
     @Override
     public AbstractServiceValidateController getServiceValidateControllerInstance() {
-        return new ServiceValidateController(
-            getValidationSpecification(),
-            getAuthenticationSystemSupport(),
-            getServicesManager(),
-            getCentralAuthenticationService(),
-            getProxyHandler(),
-            getArgumentExtractor(),
-            (assertion, request) -> Pair.of(Boolean.TRUE, Optional.empty()),
-            cas3ServiceJsonView,
-            cas3SuccessView,
-            cas3ServiceFailureView,
-            "authenticationContext",
-            new DefaultServiceTicketValidationAuthorizersExecutionPlan(),
-            true
-        );
+        val context = ServiceValidateConfigurationContext.builder()
+            .validationSpecifications(CollectionUtils.wrapSet(getValidationSpecification()))
+            .authenticationSystemSupport(getAuthenticationSystemSupport())
+            .servicesManager(getServicesManager())
+            .centralAuthenticationService(getCentralAuthenticationService())
+            .argumentExtractor(getArgumentExtractor())
+            .proxyHandler(getProxyHandler())
+            .requestedContextValidator((assertion, request) -> Pair.of(Boolean.TRUE, Optional.empty()))
+            .authnContextAttribute("authenticationContext")
+            .validationAuthorizers(new DefaultServiceTicketValidationAuthorizersExecutionPlan())
+            .renewEnabled(true)
+            .validationViewFactory(serviceValidationViewFactory)
+            .build();
+        return new ServiceValidateController(context);
     }
 
     protected Map<?, ?> renderView() throws Exception {
@@ -159,7 +152,7 @@ public class Cas30ResponseViewTests extends AbstractServiceValidateControllerTes
     @Test
     public void verifyProxyGrantingTicketAsAuthenticationAttributeCanDecrypt() throws Exception {
         val attributes = renderView();
-        LOGGER.warn("Attributes are [{}]", attributes.keySet());
+        LOGGER.trace("Attributes are [{}]", attributes.keySet());
         assertTrue(attributes.containsKey(CasViewConstants.MODEL_ATTRIBUTE_NAME_PROXY_GRANTING_TICKET));
 
         val encodedPgt = (String) attributes.get(CasViewConstants.MODEL_ATTRIBUTE_NAME_PROXY_GRANTING_TICKET);

@@ -3,6 +3,7 @@ package org.apereo.cas.authentication.trigger;
 import org.apereo.cas.authentication.Authentication;
 import org.apereo.cas.authentication.AuthenticationException;
 import org.apereo.cas.authentication.MultifactorAuthenticationProvider;
+import org.apereo.cas.authentication.MultifactorAuthenticationProviderAbsentException;
 import org.apereo.cas.authentication.MultifactorAuthenticationTrigger;
 import org.apereo.cas.authentication.MultifactorAuthenticationUtils;
 import org.apereo.cas.authentication.adaptive.geo.GeoLocationService;
@@ -54,14 +55,14 @@ public class AdaptiveMultifactorAuthenticationTrigger implements MultifactorAuth
         }
 
         if (multifactorMap == null || multifactorMap.isEmpty()) {
-            LOGGER.debug("Adaptive authentication is not configured to require multifactor authentication");
+            LOGGER.trace("Adaptive authentication is not configured to require multifactor authentication");
             return Optional.empty();
         }
 
         val providerMap = MultifactorAuthenticationUtils.getAvailableMultifactorAuthenticationProviders(ApplicationContextProvider.getApplicationContext());
         if (providerMap.isEmpty()) {
             LOGGER.error("No multifactor authentication providers are available in the application context");
-            throw new AuthenticationException();
+            throw new AuthenticationException(new MultifactorAuthenticationProviderAbsentException());
         }
 
         val clientInfo = ClientInfoHolder.getClientInfo();

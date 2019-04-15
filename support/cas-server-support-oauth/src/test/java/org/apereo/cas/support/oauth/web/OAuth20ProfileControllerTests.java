@@ -11,12 +11,15 @@ import org.apereo.cas.mock.MockTicketGrantingTicket;
 import org.apereo.cas.services.RegisteredServiceTestUtils;
 import org.apereo.cas.support.oauth.OAuth20Constants;
 import org.apereo.cas.support.oauth.web.endpoints.OAuth20UserProfileEndpointController;
+import org.apereo.cas.support.oauth.web.response.accesstoken.response.OAuth20JwtAccessTokenCipherExecutor;
+import org.apereo.cas.support.oauth.web.response.accesstoken.response.RegisteredServiceJwtAccessTokenCipherExecutor;
 import org.apereo.cas.ticket.accesstoken.AccessTokenFactory;
 import org.apereo.cas.ticket.accesstoken.DefaultAccessTokenFactory;
 import org.apereo.cas.ticket.support.AlwaysExpiresExpirationPolicy;
+import org.apereo.cas.token.JwtBuilder;
 
 import lombok.val;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpMethod;
@@ -27,10 +30,10 @@ import org.springframework.mock.web.MockHttpServletResponse;
 
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * This class tests the {@link OAuth20UserProfileEndpointController} class.
@@ -70,6 +73,7 @@ public class OAuth20ProfileControllerTests extends AbstractOAuth20Tests {
 
         assertEquals(HttpStatus.UNAUTHORIZED, entity.getStatusCode());
         assertEquals(MediaType.APPLICATION_JSON_VALUE, mockResponse.getContentType());
+        assertNotNull(entity.getBody());
         assertTrue(entity.getBody().contains(OAuth20Constants.MISSING_ACCESS_TOKEN));
     }
 
@@ -83,6 +87,7 @@ public class OAuth20ProfileControllerTests extends AbstractOAuth20Tests {
 
         assertEquals(HttpStatus.UNAUTHORIZED, entity.getStatusCode());
         assertEquals(MediaType.APPLICATION_JSON_VALUE, mockResponse.getContentType());
+        assertNotNull(entity.getBody());
         assertTrue(entity.getBody().contains(OAuth20Constants.EXPIRED_ACCESS_TOKEN));
     }
 
@@ -90,9 +95,10 @@ public class OAuth20ProfileControllerTests extends AbstractOAuth20Tests {
     public void verifyExpiredAccessToken() throws Exception {
         val principal = CoreAuthenticationTestUtils.getPrincipal(ID, new HashMap<>());
         val authentication = getAuthentication(principal);
-        val expiringAccessTokenFactory = new DefaultAccessTokenFactory(new AlwaysExpiresExpirationPolicy());
+        val jwtBuilder = new JwtBuilder("cas.example.org", new OAuth20JwtAccessTokenCipherExecutor(), servicesManager, new RegisteredServiceJwtAccessTokenCipherExecutor());
+        val expiringAccessTokenFactory = new DefaultAccessTokenFactory(new AlwaysExpiresExpirationPolicy(), jwtBuilder);
         val accessToken = expiringAccessTokenFactory.create(RegisteredServiceTestUtils.getService(), authentication,
-            new MockTicketGrantingTicket("casuser"), new ArrayList<>());
+            new MockTicketGrantingTicket("casuser"), new ArrayList<>(), null);
         this.ticketRegistry.addTicket(accessToken);
 
         val mockRequest = new MockHttpServletRequest(HttpMethod.GET.name(), CONTEXT + OAuth20Constants.PROFILE_URL);
@@ -102,20 +108,21 @@ public class OAuth20ProfileControllerTests extends AbstractOAuth20Tests {
         val entity = oAuth20ProfileController.handleRequest(mockRequest, mockResponse);
         assertEquals(HttpStatus.UNAUTHORIZED, entity.getStatusCode());
         assertEquals(MediaType.APPLICATION_JSON_VALUE, mockResponse.getContentType());
+        assertNotNull(entity.getBody());
         assertTrue(entity.getBody().contains(OAuth20Constants.EXPIRED_ACCESS_TOKEN));
     }
 
     @Test
     public void verifyOK() throws Exception {
-        val map = new HashMap<String, Object>();
-        map.put(NAME, VALUE);
-        val list = Arrays.asList(VALUE, VALUE);
-        map.put(NAME2, list);
+        val map = new HashMap<String, List<Object>>();
+        map.put(NAME, List.of(VALUE));
+        val list = List.of(VALUE, VALUE);
+        map.put(NAME2, (List) list);
 
         val principal = CoreAuthenticationTestUtils.getPrincipal(ID, map);
         val authentication = getAuthentication(principal);
         val accessToken = accessTokenFactory.create(RegisteredServiceTestUtils.getService(), authentication,
-            new MockTicketGrantingTicket("casuser"), new ArrayList<>());
+            new MockTicketGrantingTicket("casuser"), new ArrayList<>(), null);
         this.ticketRegistry.addTicket(accessToken);
 
         val mockRequest = new MockHttpServletRequest(HttpMethod.GET.name(), CONTEXT + OAuth20Constants.PROFILE_URL);
@@ -135,21 +142,21 @@ public class OAuth20ProfileControllerTests extends AbstractOAuth20Tests {
         val expectedAttributes = expectedObj.get(ATTRIBUTES_PARAM);
         val receivedAttributes = receivedObj.get(ATTRIBUTES_PARAM);
 
-        assertEquals(expectedAttributes.findValue(NAME).asText(), receivedAttributes.findValue(NAME).asText());
+        assertEquals(expectedAttributes.findValue(NAME).asText(), receivedAttributes.findValue(NAME).get(0).asText());
         assertEquals(expectedAttributes.findValues(NAME2), receivedAttributes.findValues(NAME2));
     }
 
     @Test
     public void verifyOKWithExpiredTicketGrantingTicket() throws Exception {
-        val map = new HashMap<String, Object>();
-        map.put(NAME, VALUE);
-        val list = Arrays.asList(VALUE, VALUE);
-        map.put(NAME2, list);
+        val map = new HashMap<String, List<Object>>();
+        map.put(NAME, List.of(VALUE));
+        val list = List.of(VALUE, VALUE);
+        map.put(NAME2, (List) list);
 
         val principal = CoreAuthenticationTestUtils.getPrincipal(ID, map);
         val authentication = getAuthentication(principal);
         val accessToken = accessTokenFactory.create(RegisteredServiceTestUtils.getService(), authentication,
-            new MockTicketGrantingTicket("casuser"), new ArrayList<>());
+            new MockTicketGrantingTicket("casuser"), new ArrayList<>(), null);
         accessToken.getTicketGrantingTicket().markTicketExpired();
         this.ticketRegistry.addTicket(accessToken);
 
@@ -177,21 +184,21 @@ public class OAuth20ProfileControllerTests extends AbstractOAuth20Tests {
         val expectedAttributes = expectedObj.get(ATTRIBUTES_PARAM);
         val receivedAttributes = receivedObj.get(ATTRIBUTES_PARAM);
 
-        assertEquals(expectedAttributes.findValue(NAME).asText(), receivedAttributes.findValue(NAME).asText());
+        assertEquals(expectedAttributes.findValue(NAME).asText(), receivedAttributes.findValue(NAME).get(0).asText());
         assertEquals(expectedAttributes.findValues(NAME2), receivedAttributes.findValues(NAME2));
     }
 
     @Test
     public void verifyOKWithAuthorizationHeader() throws Exception {
-        val map = new HashMap<String, Object>();
-        map.put(NAME, VALUE);
-        val list = Arrays.asList(VALUE, VALUE);
-        map.put(NAME2, list);
+        val map = new HashMap<String, List<Object>>();
+        map.put(NAME, List.of(VALUE));
+        val list = List.of(VALUE, VALUE);
+        map.put(NAME2, (List) list);
 
         val principal = CoreAuthenticationTestUtils.getPrincipal(ID, map);
         val authentication = getAuthentication(principal);
         val accessToken = accessTokenFactory.create(RegisteredServiceTestUtils.getService(), authentication,
-            new MockTicketGrantingTicket("casuser"), new ArrayList<>());
+            new MockTicketGrantingTicket("casuser"), new ArrayList<>(), null);
         this.ticketRegistry.addTicket(accessToken);
 
         val mockRequest = new MockHttpServletRequest(HttpMethod.GET.name(), CONTEXT + OAuth20Constants.PROFILE_URL);
@@ -210,7 +217,7 @@ public class OAuth20ProfileControllerTests extends AbstractOAuth20Tests {
         val expectedAttributes = expectedObj.get(ATTRIBUTES_PARAM);
         val receivedAttributes = receivedObj.get(ATTRIBUTES_PARAM);
 
-        assertEquals(expectedAttributes.findValue(NAME).asText(), receivedAttributes.findValue(NAME).asText());
+        assertEquals(expectedAttributes.findValue(NAME).asText(), receivedAttributes.findValue(NAME).get(0).asText());
         assertEquals(expectedAttributes.findValues(NAME2), receivedAttributes.findValues(NAME2));
     }
 }

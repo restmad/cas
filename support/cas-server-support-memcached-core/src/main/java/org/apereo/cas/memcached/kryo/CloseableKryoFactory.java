@@ -1,5 +1,6 @@
 package org.apereo.cas.memcached.kryo;
 
+import org.apereo.cas.authentication.AttributeMergingStrategy;
 import org.apereo.cas.authentication.DefaultAuthentication;
 import org.apereo.cas.authentication.DefaultAuthenticationHandlerExecutionResult;
 import org.apereo.cas.authentication.PreventedException;
@@ -14,37 +15,55 @@ import org.apereo.cas.authentication.exceptions.InvalidLoginLocationException;
 import org.apereo.cas.authentication.exceptions.InvalidLoginTimeException;
 import org.apereo.cas.authentication.exceptions.MixedPrincipalException;
 import org.apereo.cas.authentication.metadata.BasicCredentialMetaData;
+import org.apereo.cas.authentication.principal.DefaultPrincipalAttributesRepository;
+import org.apereo.cas.authentication.principal.ShibbolethCompatiblePersistentIdGenerator;
 import org.apereo.cas.authentication.principal.SimplePrincipal;
 import org.apereo.cas.authentication.principal.SimpleWebApplicationServiceImpl;
-import org.apereo.cas.authentication.principal.cache.AbstractPrincipalAttributesRepository;
 import org.apereo.cas.authentication.principal.cache.CachingPrincipalAttributesRepository;
+import org.apereo.cas.memcached.kryo.serial.ImmutableNativeJavaListSerializer;
+import org.apereo.cas.memcached.kryo.serial.ImmutableNativeJavaSetSerializer;
 import org.apereo.cas.memcached.kryo.serial.RegisteredServiceSerializer;
 import org.apereo.cas.memcached.kryo.serial.SimpleWebApplicationServiceSerializer;
 import org.apereo.cas.memcached.kryo.serial.ThrowableSerializer;
 import org.apereo.cas.memcached.kryo.serial.URLSerializer;
 import org.apereo.cas.memcached.kryo.serial.ZonedDateTimeSerializer;
+import org.apereo.cas.services.AnonymousRegisteredServiceUsernameAttributeProvider;
+import org.apereo.cas.services.ChainingAttributeReleasePolicy;
 import org.apereo.cas.services.DefaultRegisteredServiceAccessStrategy;
 import org.apereo.cas.services.DefaultRegisteredServiceContact;
 import org.apereo.cas.services.DefaultRegisteredServiceDelegatedAuthenticationPolicy;
 import org.apereo.cas.services.DefaultRegisteredServiceExpirationPolicy;
 import org.apereo.cas.services.DefaultRegisteredServiceMultifactorPolicy;
+import org.apereo.cas.services.DefaultRegisteredServiceProperty;
+import org.apereo.cas.services.DefaultRegisteredServiceUsernameProvider;
+import org.apereo.cas.services.DenyAllAttributeReleasePolicy;
+import org.apereo.cas.services.GroovyRegisteredServiceAccessStrategy;
+import org.apereo.cas.services.GroovyRegisteredServiceMultifactorPolicy;
+import org.apereo.cas.services.GroovyRegisteredServiceUsernameProvider;
 import org.apereo.cas.services.GroovyScriptAttributeReleasePolicy;
 import org.apereo.cas.services.PrincipalAttributeRegisteredServiceUsernameProvider;
+import org.apereo.cas.services.RefuseRegisteredServiceProxyPolicy;
 import org.apereo.cas.services.RegexMatchingRegisteredServiceProxyPolicy;
 import org.apereo.cas.services.RegexRegisteredService;
 import org.apereo.cas.services.RegisteredServiceLogoutType;
 import org.apereo.cas.services.RegisteredServiceMultifactorPolicy;
 import org.apereo.cas.services.RegisteredServicePublicKeyImpl;
+import org.apereo.cas.services.RemoteEndpointServiceAccessStrategy;
 import org.apereo.cas.services.ReturnAllAttributeReleasePolicy;
 import org.apereo.cas.services.ReturnAllowedAttributeReleasePolicy;
 import org.apereo.cas.services.ReturnMappedAttributeReleasePolicy;
 import org.apereo.cas.services.ReturnRestfulAttributeReleasePolicy;
 import org.apereo.cas.services.ScriptedRegisteredServiceAttributeReleasePolicy;
+import org.apereo.cas.services.ScriptedRegisteredServiceUsernameProvider;
+import org.apereo.cas.services.TimeBasedRegisteredServiceAccessStrategy;
 import org.apereo.cas.services.UnauthorizedServiceException;
 import org.apereo.cas.services.UnauthorizedServiceForPrincipalException;
 import org.apereo.cas.services.UnauthorizedSsoServiceException;
 import org.apereo.cas.services.consent.DefaultRegisteredServiceConsentPolicy;
+import org.apereo.cas.services.support.RegisteredServiceChainingAttributeFilter;
+import org.apereo.cas.services.support.RegisteredServiceMappedRegexAttributeFilter;
 import org.apereo.cas.services.support.RegisteredServiceRegexAttributeFilter;
+import org.apereo.cas.services.support.RegisteredServiceScriptedAttributeFilter;
 import org.apereo.cas.ticket.ProxyGrantingTicketImpl;
 import org.apereo.cas.ticket.ProxyTicketImpl;
 import org.apereo.cas.ticket.ServiceTicketImpl;
@@ -84,6 +103,7 @@ import de.javakaffee.kryoserializers.guava.ImmutableSetSerializer;
 import de.javakaffee.kryoserializers.jodatime.JodaDateTimeSerializer;
 import de.javakaffee.kryoserializers.jodatime.JodaLocalDateSerializer;
 import de.javakaffee.kryoserializers.jodatime.JodaLocalDateTimeSerializer;
+import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
@@ -114,6 +134,9 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.UUID;
@@ -127,61 +150,48 @@ import java.util.regex.Pattern;
  */
 @Slf4j
 @Setter
+@RequiredArgsConstructor
 public class CloseableKryoFactory implements KryoFactory {
 
     private final CasKryoPool kryoPool;
+
     private Collection<Class> classesToRegister = new ArrayList<>();
     private boolean warnUnregisteredClasses = true;
     private boolean registrationRequired;
     private boolean replaceObjectsByReferences;
     private boolean autoReset;
 
-    public CloseableKryoFactory(final CasKryoPool kryoPool) {
-        this.kryoPool = kryoPool;
-    }
-
-    @Override
-    public Kryo create() {
-        val kryo = new CloseableKryo(this.kryoPool);
-        kryo.setInstantiatorStrategy(new Kryo.DefaultInstantiatorStrategy(new StdInstantiatorStrategy()));
-        kryo.setWarnUnregisteredClasses(this.warnUnregisteredClasses);
-        kryo.setAutoReset(this.autoReset);
-        kryo.setReferences(this.replaceObjectsByReferences);
-        kryo.setRegistrationRequired(this.registrationRequired);
-
-        LOGGER.debug("Constructing a kryo instance with the following settings:");
-        LOGGER.debug("warnUnregisteredClasses: [{}]", this.warnUnregisteredClasses);
-        LOGGER.debug("autoReset: [{}]", this.autoReset);
-        LOGGER.debug("replaceObjectsByReferences: [{}]", this.replaceObjectsByReferences);
-        LOGGER.debug("registrationRequired: [{}]", this.registrationRequired);
-
-        registerCasAuthenticationWithKryo(kryo);
-        registerExpirationPoliciesWithKryo(kryo);
-        registerCasTicketsWithKryo(kryo);
-        registerNativeJdkComponentsWithKryo(kryo);
-        registerCasServicesWithKryo(kryo);
-        registerImmutableOrEmptyCollectionsWithKryo(kryo);
-        classesToRegister.forEach(c -> {
-            LOGGER.trace("Registering serializable class [{}] with Kryo", c.getName());
-            kryo.register(c);
-        });
-        return kryo;
-    }
 
     private static void registerImmutableOrEmptyCollectionsWithKryo(final Kryo kryo) {
         LOGGER.debug("Registering immutable/empty collections with Kryo");
 
         UnmodifiableCollectionsSerializer.registerSerializers(kryo);
+
         ImmutableListSerializer.registerSerializers(kryo);
+        kryo.register(List.of().getClass(), new ImmutableNativeJavaListSerializer());
+        kryo.register(List.of("1", "2").getClass(), new ImmutableNativeJavaListSerializer());
+        kryo.register(List.of("1", "2", "3", "4").getClass(), new ImmutableNativeJavaListSerializer());
+
         ImmutableSetSerializer.registerSerializers(kryo);
+        kryo.register(Set.of().getClass(), new ImmutableNativeJavaSetSerializer());
+        kryo.register(Set.of("1", "2").getClass(), new ImmutableNativeJavaSetSerializer());
+        kryo.register(Set.of("1", "2", "3", "4").getClass(), new ImmutableNativeJavaSetSerializer());
+
         ImmutableMapSerializer.registerSerializers(kryo);
+        kryo.register(Map.of().getClass(), new ImmutableMapSerializer());
+        kryo.register(Map.of("1", "2").getClass(), new ImmutableMapSerializer());
+        kryo.register(Map.of("1", "2", "3", "4", "5", "6").getClass(), new ImmutableMapSerializer());
+
         ImmutableMultimapSerializer.registerSerializers(kryo);
 
         kryo.register(Collections.EMPTY_LIST.getClass(), new CollectionsEmptyListSerializer());
         kryo.register(Collections.EMPTY_MAP.getClass(), new CollectionsEmptyMapSerializer());
         kryo.register(Collections.EMPTY_SET.getClass(), new CollectionsEmptySetSerializer());
 
-        // Can't directly access Collections classes (private class), so instantiate one and do a getClass().
+        /*
+         * Can't directly access Collections classes (private class),
+         * so instantiate one and do a getClass().
+         */
         val singletonSet = Collections.singleton("key");
         kryo.register(singletonSet.getClass());
 
@@ -197,13 +207,37 @@ public class CloseableKryoFactory implements KryoFactory {
         kryo.register(RegisteredServiceLogoutType.class);
         kryo.register(RegisteredServicePublicKeyImpl.class);
         kryo.register(DefaultRegisteredServiceContact.class);
+        kryo.register(DefaultRegisteredServiceProperty.class);
         kryo.register(DefaultRegisteredServiceDelegatedAuthenticationPolicy.class);
         kryo.register(DefaultRegisteredServiceExpirationPolicy.class);
-        kryo.register(RegisteredServiceRegexAttributeFilter.class);
-        kryo.register(PrincipalAttributeRegisteredServiceUsernameProvider.class);
-        kryo.register(DefaultRegisteredServiceAccessStrategy.class);
+        kryo.register(ShibbolethCompatiblePersistentIdGenerator.class);
+    }
+
+    private static void registerCasServicesProxyPolicyWithKryo(final Kryo kryo) {
         kryo.register(RegexMatchingRegisteredServiceProxyPolicy.class);
-        kryo.register(RegisteredServiceMultifactorPolicy.FailureModes.class);
+        kryo.register(RefuseRegisteredServiceProxyPolicy.class);
+    }
+
+    private static void registerCasServicesAccessStrategyWithKryo(final Kryo kryo) {
+        kryo.register(DefaultRegisteredServiceAccessStrategy.class);
+        kryo.register(GroovyRegisteredServiceAccessStrategy.class);
+        kryo.register(RemoteEndpointServiceAccessStrategy.class);
+        kryo.register(TimeBasedRegisteredServiceAccessStrategy.class);
+    }
+
+    private static void registerCasServicesUsernameAttributeProvidersWithKryo(final Kryo kryo) {
+        kryo.register(PrincipalAttributeRegisteredServiceUsernameProvider.class);
+        kryo.register(AnonymousRegisteredServiceUsernameAttributeProvider.class);
+        kryo.register(GroovyRegisteredServiceUsernameProvider.class);
+        kryo.register(DefaultRegisteredServiceUsernameProvider.class);
+        kryo.register(ScriptedRegisteredServiceUsernameProvider.class);
+    }
+
+    private static void registerCasServicesAttributeFiltersWithKryo(final Kryo kryo) {
+        kryo.register(RegisteredServiceRegexAttributeFilter.class);
+        kryo.register(RegisteredServiceChainingAttributeFilter.class);
+        kryo.register(RegisteredServiceMappedRegexAttributeFilter.class);
+        kryo.register(RegisteredServiceScriptedAttributeFilter.class);
     }
 
     private static void registerCasAuthenticationWithKryo(final Kryo kryo) {
@@ -218,17 +252,36 @@ public class CloseableKryoFactory implements KryoFactory {
         kryo.register(HttpBasedServiceCredential.class);
         kryo.register(OneTimePasswordCredential.class);
         kryo.register(PublicKeyFactoryBean.class);
+    }
+
+    private static void registerCasServicesAttributeReleasePolicyWithKryo(final Kryo kryo) {
+        kryo.register(ChainingAttributeReleasePolicy.class);
+        kryo.register(DenyAllAttributeReleasePolicy.class);
         kryo.register(ReturnAllowedAttributeReleasePolicy.class);
         kryo.register(ReturnAllAttributeReleasePolicy.class);
         kryo.register(ReturnMappedAttributeReleasePolicy.class);
         kryo.register(GroovyScriptAttributeReleasePolicy.class);
         kryo.register(ScriptedRegisteredServiceAttributeReleasePolicy.class);
         kryo.register(ReturnRestfulAttributeReleasePolicy.class);
-        kryo.register(CachingPrincipalAttributesRepository.class);
-        kryo.register(AbstractPrincipalAttributesRepository.class);
-        kryo.register(AbstractPrincipalAttributesRepository.MergingStrategy.class);
+    }
+
+    private static void registerCasServicesConsentPolicyWithKryo(final Kryo kryo) {
         kryo.register(DefaultRegisteredServiceConsentPolicy.class);
+    }
+
+    private static void registerCasServicesMultifactorPolicyWithKryo(final Kryo kryo) {
         kryo.register(DefaultRegisteredServiceMultifactorPolicy.class);
+        kryo.register(GroovyRegisteredServiceMultifactorPolicy.class);
+        kryo.register(RegisteredServiceMultifactorPolicy.FailureModes.class);
+    }
+
+    private static void registerCasServicesPrincipalAttributeRepositoryWithKryo(final Kryo kryo) {
+        kryo.register(CachingPrincipalAttributesRepository.class);
+        kryo.register(DefaultPrincipalAttributesRepository.class);
+        kryo.register(AttributeMergingStrategy.class);
+    }
+
+    private static void registerExceptionsWithKryo(final Kryo kryo) {
         kryo.register(GeneralSecurityException.class, new ThrowableSerializer());
         kryo.register(PreventedException.class);
         kryo.register(AccountNotFoundException.class, new ThrowableSerializer());
@@ -266,6 +319,15 @@ public class CloseableKryoFactory implements KryoFactory {
         kryo.register(EnumMap.class, new EnumMapSerializer());
         kryo.register(EnumSet.class, new EnumSetSerializer());
 
+        kryo.register(Object[].class);
+        kryo.register(String[].class);
+        kryo.register(Long[].class);
+        kryo.register(Integer[].class);
+        kryo.register(Double[].class);
+        kryo.register(double[].class);
+        kryo.register(float[].class);
+        kryo.register(long[].class);
+        kryo.register(int[].class);
         kryo.register(byte[].class);
         kryo.register(ByteBuffer.class);
 
@@ -296,5 +358,43 @@ public class CloseableKryoFactory implements KryoFactory {
         kryo.register(ThrottledUseAndTimeoutExpirationPolicy.class);
         kryo.register(TicketGrantingTicketExpirationPolicy.class);
         kryo.register(BaseDelegatingExpirationPolicy.class);
+    }
+
+    @Override
+    public Kryo create() {
+        val kryo = new CloseableKryo(this.kryoPool);
+        kryo.setInstantiatorStrategy(new Kryo.DefaultInstantiatorStrategy(new StdInstantiatorStrategy()));
+        kryo.setWarnUnregisteredClasses(this.warnUnregisteredClasses);
+        kryo.setAutoReset(this.autoReset);
+        kryo.setReferences(this.replaceObjectsByReferences);
+        kryo.setRegistrationRequired(this.registrationRequired);
+
+        LOGGER.debug("Constructing a kryo instance with the following settings:");
+        LOGGER.debug("warnUnregisteredClasses: [{}]", this.warnUnregisteredClasses);
+        LOGGER.debug("autoReset: [{}]", this.autoReset);
+        LOGGER.debug("replaceObjectsByReferences: [{}]", this.replaceObjectsByReferences);
+        LOGGER.debug("registrationRequired: [{}]", this.registrationRequired);
+
+        registerCasAuthenticationWithKryo(kryo);
+        registerExpirationPoliciesWithKryo(kryo);
+        registerCasTicketsWithKryo(kryo);
+        registerNativeJdkComponentsWithKryo(kryo);
+        registerCasServicesWithKryo(kryo);
+        registerCasServicesAttributeFiltersWithKryo(kryo);
+        registerCasServicesUsernameAttributeProvidersWithKryo(kryo);
+        registerCasServicesAccessStrategyWithKryo(kryo);
+        registerImmutableOrEmptyCollectionsWithKryo(kryo);
+        registerCasServicesProxyPolicyWithKryo(kryo);
+        registerExceptionsWithKryo(kryo);
+        registerCasServicesPrincipalAttributeRepositoryWithKryo(kryo);
+        registerCasServicesMultifactorPolicyWithKryo(kryo);
+        registerCasServicesConsentPolicyWithKryo(kryo);
+        registerCasServicesAttributeReleasePolicyWithKryo(kryo);
+
+        classesToRegister.forEach(c -> {
+            LOGGER.trace("Registering serializable class [{}] with Kryo", c.getName());
+            kryo.register(c);
+        });
+        return kryo;
     }
 }

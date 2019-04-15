@@ -1,6 +1,5 @@
 package org.apereo.cas.ticket.registry;
 
-import org.apereo.cas.category.CouchDbCategory;
 import org.apereo.cas.config.CasCoreAuthenticationConfiguration;
 import org.apereo.cas.config.CasCoreAuthenticationHandlersConfiguration;
 import org.apereo.cas.config.CasCoreAuthenticationMetadataConfiguration;
@@ -23,18 +22,14 @@ import org.apereo.cas.config.support.CasWebApplicationServiceFactoryConfiguratio
 import org.apereo.cas.couchdb.core.CouchDbConnectorFactory;
 import org.apereo.cas.couchdb.tickets.TicketRepository;
 import org.apereo.cas.logout.config.CasCoreLogoutConfiguration;
+import org.apereo.cas.util.junit.EnabledIfContinuousIntegration;
 
-import org.junit.After;
-import org.junit.experimental.categories.Category;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.cloud.autoconfigure.RefreshAutoConfiguration;
-
-import java.util.Arrays;
-import java.util.Collection;
 
 /**
  * This is {@link CouchDbTicketRegistryTests}.
@@ -42,7 +37,6 @@ import java.util.Collection;
  * @author Timur Duehr
  * @since 5.3.0
  */
-@RunWith(Parameterized.class)
 @SpringBootTest(classes = {
     CasCouchDbCoreConfiguration.class,
     CouchDbTicketRegistryConfiguration.class,
@@ -70,8 +64,9 @@ import java.util.Collection;
         "cas.ticket.registry.couchDb.username=cas",
         "cas.ticket.registry.couchDb.password=password"
     })
-@Category(CouchDbCategory.class)
-public class CouchDbTicketRegistryTests extends BaseSpringRunnableTicketRegistryTests {
+@Tag("CouchDb")
+@EnabledIfContinuousIntegration
+public class CouchDbTicketRegistryTests extends BaseTicketRegistryTests {
 
     @Autowired
     @Qualifier("ticketRegistry")
@@ -85,16 +80,7 @@ public class CouchDbTicketRegistryTests extends BaseSpringRunnableTicketRegistry
     @Qualifier("ticketRegistryCouchDbRepository")
     private TicketRepository ticketRepository;
 
-    public CouchDbTicketRegistryTests(final boolean useEncryption) {
-        super(useEncryption);
-    }
-
-    @Parameterized.Parameters
-    public static Collection<Object> getTestParameters() {
-        return Arrays.asList(false, true);
-    }
-
-    @After
+    @AfterEach
     public void afterEachTest() {
         couchDbFactory.getCouchDbInstance().deleteDatabase(couchDbFactory.getCouchDbConnector().getDatabaseName());
     }

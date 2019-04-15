@@ -1,7 +1,6 @@
 package org.apereo.cas.web.flow;
 
 import org.apereo.cas.AbstractCentralAuthenticationServiceTests;
-import org.apereo.cas.authentication.CoreAuthenticationTestUtils;
 import org.apereo.cas.config.TokenAuthenticationConfiguration;
 import org.apereo.cas.services.DefaultRegisteredServiceProperty;
 import org.apereo.cas.services.RegisteredServiceProperty;
@@ -21,9 +20,10 @@ import org.apereo.cas.web.support.WebUtils;
 import com.nimbusds.jose.EncryptionMethod;
 import com.nimbusds.jose.JWEAlgorithm;
 import com.nimbusds.jose.JWSAlgorithm;
+import lombok.SneakyThrows;
 import lombok.val;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.pac4j.core.profile.CommonProfile;
 import org.pac4j.jwt.config.encryption.SecretEncryptionConfiguration;
 import org.pac4j.jwt.config.signature.SecretSignatureConfiguration;
@@ -38,7 +38,7 @@ import org.springframework.webflow.context.servlet.ServletExternalContext;
 import org.springframework.webflow.execution.Action;
 import org.springframework.webflow.test.MockRequestContext;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * This is {@link TokenAuthenticationActionTests}.
@@ -66,7 +66,7 @@ public class TokenAuthenticationActionTests extends AbstractCentralAuthenticatio
     @Qualifier("servicesManager")
     private ServicesManager servicesManager;
 
-    @Before
+    @BeforeEach
     public void before() {
         val svc = RegisteredServiceTestUtils.getRegisteredService("https://example.token.org");
         svc.setAttributeReleasePolicy(new ReturnAllAttributeReleasePolicy());
@@ -81,7 +81,8 @@ public class TokenAuthenticationActionTests extends AbstractCentralAuthenticatio
     }
 
     @Test
-    public void verifyAction() throws Exception {
+    @SneakyThrows
+    public void verifyAction() {
         val g = new JwtGenerator<CommonProfile>();
 
         g.setSignatureConfiguration(new SecretSignatureConfiguration(SIGNING_SECRET, JWSAlgorithm.HS256));
@@ -98,7 +99,7 @@ public class TokenAuthenticationActionTests extends AbstractCentralAuthenticatio
         request.addHeader(TokenConstants.PARAMETER_NAME_TOKEN, token);
         val context = new MockRequestContext();
         context.setExternalContext(new ServletExternalContext(new MockServletContext(), request, new MockHttpServletResponse()));
-        WebUtils.putServiceIntoFlowScope(context, CoreAuthenticationTestUtils.getWebApplicationService("https://example.token.org"));
+        WebUtils.putServiceIntoFlowScope(context, RegisteredServiceTestUtils.getService("https://example.token.org"));
         assertEquals("success", this.action.execute(context).getId());
     }
 }

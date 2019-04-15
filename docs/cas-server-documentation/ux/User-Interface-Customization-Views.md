@@ -1,6 +1,6 @@
 ---
 layout: default
-title: CAS - User Interface Customization
+title: Views - User Interface Customization - CAS
 category: User Interface
 ---
 
@@ -64,5 +64,13 @@ and will not generate the TGC that is designed to do so.
 In the event that no `service` is submitted to CAS, you may specify a default
 service url to which CAS will redirect. Note that this default service, much like
 all other services, MUST be authorized and registered with CAS.
+
+To see the relevant list of CAS properties, please [review this guide](../configuration/Configuration-Properties.html#views).
+
+## Custom Fields
+
+CAS allows on the ability to dynamically extend the login form by including additional fields, to be populated by the user.
+Such fields are taught to CAS using settings and are then bound to the authentication flow and made available to all
+authentication handlers that wish to impose additional processes and rules using said fields.
 
 To see the relevant list of CAS properties, please [review this guide](../configuration/Configuration-Properties.html#views).

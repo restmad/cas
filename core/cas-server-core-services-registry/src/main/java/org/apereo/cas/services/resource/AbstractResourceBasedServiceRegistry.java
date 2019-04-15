@@ -33,6 +33,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -52,8 +53,6 @@ import java.util.stream.Collectors;
 @Slf4j
 @ToString
 public abstract class AbstractResourceBasedServiceRegistry extends AbstractServiceRegistry implements ResourceBasedServiceRegistry, DisposableBean {
-
-    private static final String PATTERN_REGISTERED_SERVICE_FILE_NAME = "(\\w+)-(\\d+)\\.";
 
     private static final BinaryOperator<RegisteredService> LOG_DUPLICATE_AND_RETURN_FIRST_ONE = (s1, s2) -> {
         BaseResourceBasedRegisteredServiceWatcher.LOG_SERVICE_DUPLICATE.accept(s2);
@@ -78,11 +77,11 @@ public abstract class AbstractResourceBasedServiceRegistry extends AbstractServi
 
     private PathWatcherService serviceRegistryConfigWatcher;
 
-    private Pattern serviceFileNamePattern;
-
     private RegisteredServiceReplicationStrategy registeredServiceReplicationStrategy;
 
     private RegisteredServiceResourceNamingStrategy resourceNamingStrategy;
+
+    private Pattern serviceFileNamePattern;
 
     public AbstractResourceBasedServiceRegistry(final Resource configDirectory,
                                                 final Collection<StringSerializer<RegisteredService>> serializers,
@@ -139,9 +138,9 @@ public abstract class AbstractResourceBasedServiceRegistry extends AbstractServi
         this.resourceNamingStrategy = ObjectUtils.defaultIfNull(resourceNamingStrategy, new DefaultRegisteredServiceResourceNamingStrategy());
         this.registeredServiceSerializers = serializers;
 
-        val pattern = String.join("|", getExtensions());
-        this.serviceFileNamePattern = RegexUtils.createPattern(PATTERN_REGISTERED_SERVICE_FILE_NAME.concat(pattern));
+        this.serviceFileNamePattern = resourceNamingStrategy.buildNamingPattern(getExtensions());
         LOGGER.trace("Constructed service name file pattern [{}]", serviceFileNamePattern.pattern());
+
 
         this.serviceRegistryDirectory = configDirectory;
         val file = this.serviceRegistryDirectory.toFile();
@@ -257,6 +256,11 @@ public abstract class AbstractResourceBasedServiceRegistry extends AbstractServi
             LOGGER.debug("[{}] starts with ., ignoring", fileName);
             return new ArrayList<>(0);
         }
+        if (Arrays.stream(getExtensions()).noneMatch(fileName::endsWith)) {
+            LOGGER.debug("[{}] doesn't end with valid extension, ignoring", fileName);
+            return new ArrayList<>(0);
+        }
+
         if (!RegexUtils.matches(this.serviceFileNamePattern, fileName)) {
             LOGGER.warn("[{}] does not match the recommended pattern [{}]. "
                     + "While CAS tries to be forgiving as much as possible, it's recommended "
@@ -323,7 +327,16 @@ public abstract class AbstractResourceBasedServiceRegistry extends AbstractServi
      * @return the registered service from file
      */
     protected RegisteredService getRegisteredServiceFromFile(final File file) {
-        val matcher = this.serviceFileNamePattern.matcher(file.getName());
+        val fileName = file.getName();
+        if (fileName.startsWith(".")) {
+            LOGGER.trace("[{}] starts with ., ignoring", fileName);
+            return null;
+        }
+        if (Arrays.stream(getExtensions()).noneMatch(fileName::endsWith)) {
+            LOGGER.trace("[{}] doesn't end with valid extension, ignoring", fileName);
+            return null;
+        }
+        val matcher = this.serviceFileNamePattern.matcher(fileName);
         if (matcher.find()) {
             val serviceId = matcher.group(2);
             if (NumberUtils.isCreatable(serviceId)) {

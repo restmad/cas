@@ -24,7 +24,6 @@ exposed over the endpoint `/actuator`. The following endpoints are secured and a
 | `httptrace`               | Displays HTTP trace information (by default, the last 100 HTTP request-response exchanges).
 | `mappings`                | Describes how requests are mapped and handled by CAS.
 | `scheduledtasks`          | Displays the scheduled tasks in CAS.
-| `mappings`                | Describes how requests are mapped and handled by CAS.
 | `shutdown`                | Shut down the application via a `POST`. Disabled by default.
 | `restart`                 | Restart the application via a `POST`. Disabled by default.
 | `refresh`                 | Refresh the application configuration via a `POST` to let components reload and recognize new values.
@@ -37,6 +36,10 @@ exposed over the endpoint `/actuator`. The following endpoints are secured and a
 Note that by default the only endpoints exposed over the web are <code>info</code>, <code>status</code>, <code>health</code> and <code>configurationMetadata</code>.
 Other endpoints need to be explicitly enabled and then exposed over the web in CAS settings in order to allow access.
 </p></div>
+
+Note that certain CAS features present actuator endpoints of their own, and such endpoints only become active
+once the feature is turned on and made available to CAS at runtime. For more information, refer to the specific
+documentation page for the feature in question to learn more about administrative endpoints, etc.
 
 Actuator endpoints provided by Spring Boot can also be visually managed and monitored
  via the [Spring Boot Administration Server](Configuring-Monitoring-Administration.html).
@@ -56,9 +59,6 @@ The reported measurements are the sum of the statistics of all meters matching t
 So in the example above, the returned "Value" statistic is the sum of the maximum memory footprints of "Code Cache", 
 "Compressed Class Space", and "Metaspace" areas of the heap. If you just wanted to see the maximum size for the "Metaspace", 
 you could add an additional `tag=id:Metaspace`, i.e. `/actuator/metrics/jvm.memory.max?tag=area:nonheap&tag=id:Metaspace`.
-
-<div class="alert alert-info"><strong>Use <code>/status/health</code> instead of <code>/status</code> </strong><p>Note that <code>/status</code> endpoint is kept for legacy reason. 
-It is advised to use <code>/actuator/health</code> instead of <code>/status</code> for the purpose of general health status monitoring</p></div>
 
 ## Security
 

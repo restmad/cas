@@ -44,11 +44,11 @@ currentChangeSetAffectsDocumentation() {
 }
 
 currentChangeSetAffectsDependencies() {
-    currentChangeSetContains "\.(gradle|properties|java)"
+    currentChangeSetContains "\.(gradle|properties|java|yml)"
     return `(expr "$?" + 0)`
 }
 
 currentChangeSetAffectsSnapshots() {
-    currentChangeSetContains "\.(java|groovy|yml|properties|xml|json)"
+    currentChangeSetContains "\.(java|groovy|yml|gradle|properties|xml|json)"
     return `(expr "$?" + 0)`
 }

@@ -6,7 +6,7 @@ category: Webflow Management
 
 # Acceptable Usage Policy
 
-CAS presents the ability to allow the user to accept the usage policy before moving on to the application.
+Also known as *Terms of Use* or *EULA*, CAS presents the ability to allow the user to accept the usage policy before moving on to the application.
 Production-level deployments of this feature would require modifications to the flow such that the retrieval
 and/or acceptance of the policy would be handled via an external storage mechanism such as LDAP or JDBC.
 
@@ -54,6 +54,51 @@ The scope of the default storage mechanism can be adjusted from the default of G
 AUTHENTICATION which will result in the user having to agree to the policy during each authentication event.
 The user will not have to agree to the policy when CAS grants access based on an existing ticket granting
 ticket cookie. 
+
+### Groovy
+
+Alternatively, CAS can be configured to use a Groovy script to verify status of policies and store results. The script should match the following:
+
+```groovy
+import org.apereo.cas.authentication.principal.*
+import org.apereo.cas.authentication.*
+import org.apereo.cas.util.*
+import org.apereo.cas.aup.*
+import org.springframework.webflow.execution.*
+
+def verify(Object[] args) {
+    def requestContext = args[0]
+    def credential = args[1]
+    def applicationContext = args[2]
+    def principal = args[3]
+    def logger = args[4]
+    ...
+    if (policyAccepted()) {
+        return AcceptableUsagePolicyStatus.accepted(principal)
+    }
+    return AcceptableUsagePolicyStatus.denied(principal)
+}
+
+def submit(Object[] args) {
+     def requestContext = args[0]
+     def credential = args[1]
+     def applicationContext = args[2]
+     def principal = args[3]
+     def logger = args[4]
+     ...
+     return true
+ }
+```
+
+The parameters passed are as follows:
+
+| Parameter             | Description
+|-----------------------|-----------------------------------------------------------------------
+| `requestContext`      | The object representing the Spring Webflow `RequestContext`.
+| `credential`          | The object representing the authentication `Credential`.
+| `applicationContext`  | The object representing the Spring `ApplicationContext`.
+| `principal`           | The object representing the authenticated `Principal`.
+| `logger`              | The object responsible for issuing log messages such as `logger.info(...)`.
 
 ### LDAP
 

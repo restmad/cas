@@ -1,6 +1,9 @@
 package org.apereo.cas.authentication;
 
 import org.apereo.cas.authentication.principal.Principal;
+import org.apereo.cas.authentication.principal.PrincipalFactory;
+import org.apereo.cas.authentication.principal.Service;
+import org.apereo.cas.services.RegisteredService;
 import org.apereo.cas.util.CollectionUtils;
 
 import lombok.Getter;
@@ -39,7 +42,8 @@ public class DefaultAuthenticationBuilder implements AuthenticationBuilder {
     /**
      * Authentication metadata attributes.
      */
-    private final Map<String, Object> attributes = new LinkedHashMap<>();
+    private final Map<String, List<Object>> attributes = new LinkedHashMap<>();
+
     /**
      * Map of handler names to authentication successes.
      */
@@ -159,7 +163,7 @@ public class DefaultAuthenticationBuilder implements AuthenticationBuilder {
     }
 
     @Override
-    public AuthenticationBuilder setAttributes(final Map<String, Object> attributes) {
+    public AuthenticationBuilder setAttributes(final Map<String, List<Object>> attributes) {
         this.attributes.clear();
         this.attributes.putAll(attributes);
         return this;
@@ -167,11 +171,16 @@ public class DefaultAuthenticationBuilder implements AuthenticationBuilder {
 
     @Override
     public AuthenticationBuilder mergeAttribute(final String key, final Object value) {
+        return mergeAttribute(key, CollectionUtils.toCollection(value, ArrayList.class));
+    }
+
+    @Override
+    public AuthenticationBuilder mergeAttribute(final String key, final List<Object> value) {
         val currentValue = this.attributes.get(key);
         if (currentValue == null) {
             return addAttribute(key, value);
         }
-        val collection = CollectionUtils.toCollection(currentValue);
+        val collection = CollectionUtils.toCollection(currentValue, ArrayList.class);
         collection.addAll(CollectionUtils.toCollection(value));
         return addAttribute(key, collection);
     }
@@ -187,9 +196,14 @@ public class DefaultAuthenticationBuilder implements AuthenticationBuilder {
     }
 
     @Override
-    public AuthenticationBuilder addAttribute(final String key, final Object value) {
+    public AuthenticationBuilder addAttribute(final String key, final List<Object> value) {
         this.attributes.put(key, value);
         return this;
+    }
+
+    @Override
+    public AuthenticationBuilder addAttribute(final String key, final Object value) {
+        return addAttribute(key, CollectionUtils.toCollection(value, ArrayList.class));
     }
 
     @Override
@@ -199,8 +213,10 @@ public class DefaultAuthenticationBuilder implements AuthenticationBuilder {
     }
 
     @Override
-    public AuthenticationBuilder addSuccesses(final Map<String, AuthenticationHandlerExecutionResult> successes) {
-        successes.forEach(this::addSuccess);
+    public AuthenticationBuilder addSuccesses(final @NonNull Map<String, AuthenticationHandlerExecutionResult> successes) {
+        if (successes != null) {
+            successes.forEach(this::addSuccess);
+        }
         return this;
     }
 
@@ -222,8 +238,10 @@ public class DefaultAuthenticationBuilder implements AuthenticationBuilder {
     }
 
     @Override
-    public AuthenticationBuilder addFailures(final Map<String, Throwable> failures) {
-        failures.forEach(this::addFailure);
+    public AuthenticationBuilder addFailures(final @NonNull Map<String, Throwable> failures) {
+        if (failures != null) {
+            failures.forEach(this::addFailure);
+        }
         return this;
     }
 
@@ -244,5 +262,28 @@ public class DefaultAuthenticationBuilder implements AuthenticationBuilder {
     public Authentication build() {
         return new DefaultAuthentication(this.authenticationDate, this.credentials, this.principal,
             this.attributes, this.successes, this.failures, this.warnings);
+    }
+
+    /**
+     * Factory method.
+     *
+     * @param principal           principal.
+     * @param principalFactory    principalFactory.
+     * @param principalAttributes principalAttributes.
+     * @param service             service.
+     * @param registeredService   registeredService.
+     * @param authentication      authentication.
+     * @return AuthenticationBuilder new AuthenticationBuilder instance.
+     */
+    public static AuthenticationBuilder of(final Principal principal,
+                                           final PrincipalFactory principalFactory,
+                                           final Map<String, List<Object>> principalAttributes,
+                                           final Service service,
+                                           final RegisteredService registeredService,
+                                           final Authentication authentication) {
+
+        val principalId = registeredService.getUsernameAttributeProvider().resolveUsername(principal, service, registeredService);
+        val newPrincipal = principalFactory.createPrincipal(principalId, principalAttributes);
+        return DefaultAuthenticationBuilder.newInstance(authentication).setPrincipal(newPrincipal);
     }
 }

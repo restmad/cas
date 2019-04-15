@@ -156,7 +156,7 @@ public class HttpUtils {
      * @param response the response to close
      */
     public static void close(final HttpResponse response) {
-        if (response != null) {
+        if (response instanceof CloseableHttpResponse) {
             val closeableHttpResponse = (CloseableHttpResponse) response;
             try {
                 closeableHttpResponse.close();
@@ -303,7 +303,7 @@ public class HttpUtils {
      * @param url               the url
      * @param basicAuthUsername the basic auth username
      * @param basicAuthPassword the basic auth password
-     * @param entity        the json entity
+     * @param entity            the json entity
      * @return the http response
      */
     public static HttpResponse executePost(final String url,

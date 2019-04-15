@@ -44,10 +44,8 @@ import org.apereo.cas.ticket.registry.TicketRegistry;
 import org.apereo.cas.ticket.support.NeverExpiresExpirationPolicy;
 
 import lombok.val;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ExpectedException;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentMatcher;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -62,7 +60,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.stream.IntStream;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 /**
@@ -82,9 +80,6 @@ public class DefaultCentralAuthenticationServiceMockitoTests extends BaseCasCore
     private static final String SVC2_ID = "test2";
 
     private static final String PRINCIPAL = "principal";
-
-    @Rule
-    public ExpectedException thrown = ExpectedException.none();
 
     private DefaultCentralAuthenticationService cas;
     private Authentication authentication;
@@ -137,7 +132,7 @@ public class DefaultCentralAuthenticationServiceMockitoTests extends BaseCasCore
         return new WebApplicationServiceFactory().createService(request);
     }
 
-    @Before
+    @BeforeEach
     public void prepareNewCAS() {
         this.authentication = mock(Authentication.class);
         when(this.authentication.getAuthenticationDate()).thenReturn(ZonedDateTime.now(ZoneOffset.UTC));
@@ -158,7 +153,10 @@ public class DefaultCentralAuthenticationServiceMockitoTests extends BaseCasCore
         when(tgtMock.getProxiedBy()).thenReturn(getService("proxiedBy"));
 
         val authnListMock = mock(List.class);
-        // Size is required to be 2, so that we can simulate proxying capabilities
+        /*
+         * Size is required to be 2, so that
+         * we can simulate proxying capabilities
+         */
         when(authnListMock.size()).thenReturn(2);
         when(authnListMock.toArray()).thenReturn(new Object[]{this.authentication, this.authentication});
         when(authnListMock.get(anyInt())).thenReturn(this.authentication);
@@ -194,13 +192,16 @@ public class DefaultCentralAuthenticationServiceMockitoTests extends BaseCasCore
     private static TicketFactory getTicketFactory() {
         val factory = new DefaultTicketFactory();
         factory.addTicketFactory(ProxyGrantingTicket.class,
-            new DefaultProxyGrantingTicketFactory(null, null, null));
+            new DefaultProxyGrantingTicketFactory(null,
+                null, CipherExecutor.noOpOfStringToString()));
         factory.addTicketFactory(TicketGrantingTicket.class,
-            new DefaultTicketGrantingTicketFactory(null, null, null));
+            new DefaultTicketGrantingTicketFactory(null,
+                null, CipherExecutor.noOpOfSerializableToString()));
         factory.addTicketFactory(ServiceTicket.class,
-            new DefaultServiceTicketFactory(new NeverExpiresExpirationPolicy(), new HashMap<>(0), false, null));
+            new DefaultServiceTicketFactory(new NeverExpiresExpirationPolicy(), new HashMap<>(0), false, CipherExecutor.noOpOfStringToString(), mock(ServicesManager.class)));
         factory.addTicketFactory(ProxyTicket.class,
-            new DefaultProxyTicketFactory(null, new HashMap<>(0), null, true));
+            new DefaultProxyTicketFactory(null, new HashMap<>(0),
+                CipherExecutor.noOpOfStringToString(), true, mock(ServicesManager.class)));
         factory.addTicketFactory(TransientSessionTicket.class,
             new DefaultTransientSessionTicketFactory(new NeverExpiresExpirationPolicy()));
         return factory;
@@ -225,32 +226,28 @@ public class DefaultCentralAuthenticationServiceMockitoTests extends BaseCasCore
 
     @Test
     public void verifyNonExistentServiceWhenDelegatingTicketGrantingTicket() {
-        this.thrown.expect(InvalidTicketException.class);
-        this.cas.createProxyGrantingTicket("bad-st", getAuthenticationContext());
+        assertThrows(InvalidTicketException.class, () -> cas.createProxyGrantingTicket("bad-st", getAuthenticationContext()));
     }
 
     @Test
     public void verifyInvalidServiceWhenDelegatingTicketGrantingTicket() {
-        this.thrown.expect(UnauthorizedServiceException.class);
-        this.cas.createProxyGrantingTicket(ST_ID, getAuthenticationContext());
+        assertThrows(UnauthorizedServiceException.class, () -> this.cas.createProxyGrantingTicket(ST_ID, getAuthenticationContext()));
     }
 
     @Test
     public void disallowVendingServiceTicketsWhenServiceIsNotAllowedToProxyCAS1019() {
-        this.thrown.expect(UnauthorizedProxyingException.class);
-        this.cas.grantServiceTicket(TGT_ID, RegisteredServiceTestUtils.getService(SVC1_ID), getAuthenticationContext());
+        assertThrows(UnauthorizedProxyingException.class,
+            () -> this.cas.grantServiceTicket(TGT_ID, RegisteredServiceTestUtils.getService(SVC1_ID), getAuthenticationContext()));
     }
 
     @Test
-    public void getTicketGrantingTicketIfTicketIdIsNull() throws InvalidTicketException {
-        this.thrown.expect(NullPointerException.class);
-        this.cas.getTicket(null, TicketGrantingTicket.class);
+    public void getTicketGrantingTicketIfTicketIdIsNull() {
+        assertThrows(NullPointerException.class, () -> this.cas.getTicket(null, TicketGrantingTicket.class));
     }
 
     @Test
-    public void getTicketGrantingTicketIfTicketIdIsMissing() throws InvalidTicketException {
-        this.thrown.expect(InvalidTicketException.class);
-        this.cas.getTicket("TGT-9000", TicketGrantingTicket.class);
+    public void getTicketGrantingTicketIfTicketIdIsMissing() {
+        assertThrows(InvalidTicketException.class, () -> this.cas.getTicket("TGT-9000", TicketGrantingTicket.class));
     }
 
     @Test

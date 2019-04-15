@@ -86,14 +86,13 @@ public class SurrogateAuthenticationConfiguration {
     @Qualifier("ticketGrantingTicketExpirationPolicy")
     private ObjectProvider<ExpirationPolicy> ticketGrantingTicketExpirationPolicy;
 
-    @RefreshScope
     @Bean
     public ExpirationPolicy grantingTicketExpirationPolicy() {
         val su = casProperties.getAuthn().getSurrogate();
         val surrogatePolicy = new HardTimeoutExpirationPolicy(su.getTgt().getTimeToKillInSeconds());
-        val policy = new SurrogateSessionExpirationPolicy(surrogatePolicy);
-        policy.addPolicy(SurrogateSessionExpirationPolicy.PolicyTypes.SURROGATE, surrogatePolicy);
-        policy.addPolicy(SurrogateSessionExpirationPolicy.PolicyTypes.DEFAULT, ticketGrantingTicketExpirationPolicy.getIfAvailable());
+        val policy = new SurrogateSessionExpirationPolicy();
+        policy.addPolicy(SurrogateSessionExpirationPolicy.POLICY_NAME_SURROGATE, surrogatePolicy);
+        policy.addPolicy(SurrogateSessionExpirationPolicy.POLICY_NAME_DEFAULT, ticketGrantingTicketExpirationPolicy.getIfAvailable());
         return policy;
     }
 
@@ -170,7 +169,9 @@ public class SurrogateAuthenticationConfiguration {
             surrogatePrincipalFactory(),
             principal.isReturnNull() || personDirectory.isReturnNull(),
             principalAttribute,
-            personDirectory.isUseExistingPrincipalId() || principal.isUseExistingPrincipalId());
+            personDirectory.isUseExistingPrincipalId() || principal.isUseExistingPrincipalId(),
+            principal.isAttributeResolutionEnabled(),
+            StringUtils.commaDelimitedListToSet(principal.getActiveAttributeRepositoryIds()));
     }
 
     @ConditionalOnMissingBean(name = "surrogatePrincipalResolutionExecutionPlanConfigurer")

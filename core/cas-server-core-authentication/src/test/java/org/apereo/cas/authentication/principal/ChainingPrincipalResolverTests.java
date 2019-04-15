@@ -6,13 +6,14 @@ import org.apereo.cas.authentication.principal.resolvers.ChainingPrincipalResolv
 import org.apereo.cas.util.CollectionUtils;
 
 import lombok.val;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 /**
@@ -41,6 +42,7 @@ public class ChainingPrincipalResolverTests {
         assertTrue(resolver.supports(credential));
     }
 
+    @SuppressWarnings("unchecked")
     @Test
     public void examineResolve() {
         val principalOut = principalFactory.createPrincipal("output");
@@ -54,7 +56,7 @@ public class ChainingPrincipalResolverTests {
         val resolver2 = mock(PrincipalResolver.class);
         when(resolver2.supports(any(Credential.class))).thenReturn(true);
         when(resolver2.resolve(any(Credential.class), any(Optional.class), any(Optional.class)))
-            .thenReturn(principalFactory.createPrincipal("output", Collections.singletonMap("mail", "final@example.com")));
+            .thenReturn(principalFactory.createPrincipal("output", Collections.singletonMap("mail", List.of("final@example.com"))));
 
         val resolver = new ChainingPrincipalResolver();
         resolver.setChain(Arrays.asList(resolver1, resolver2));
@@ -62,7 +64,9 @@ public class ChainingPrincipalResolverTests {
             Optional.of(principalOut),
             Optional.of(new SimpleTestUsernamePasswordAuthenticationHandler()));
         assertEquals("output", principal.getId());
-        assertEquals("final@example.com", CollectionUtils.firstElement(principal.getAttributes().get("mail")).get());
+        val mail = CollectionUtils.firstElement(principal.getAttributes().get("mail"));
+        assertTrue(mail.isPresent());
+        assertEquals("final@example.com", mail.get());
     }
 
 }

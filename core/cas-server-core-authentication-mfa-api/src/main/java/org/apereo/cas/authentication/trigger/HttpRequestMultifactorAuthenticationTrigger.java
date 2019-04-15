@@ -3,6 +3,7 @@ package org.apereo.cas.authentication.trigger;
 import org.apereo.cas.authentication.Authentication;
 import org.apereo.cas.authentication.AuthenticationException;
 import org.apereo.cas.authentication.MultifactorAuthenticationProvider;
+import org.apereo.cas.authentication.MultifactorAuthenticationProviderAbsentException;
 import org.apereo.cas.authentication.MultifactorAuthenticationTrigger;
 import org.apereo.cas.authentication.MultifactorAuthenticationUtils;
 import org.apereo.cas.authentication.principal.Service;
@@ -56,7 +57,7 @@ public class HttpRequestMultifactorAuthenticationTrigger implements MultifactorA
             val providerMap = MultifactorAuthenticationUtils.getAvailableMultifactorAuthenticationProviders(ApplicationContextProvider.getApplicationContext());
             if (providerMap.isEmpty()) {
                 LOGGER.error("No multifactor authentication providers are available in the application context to satisfy [{}]", values);
-                throw new AuthenticationException();
+                throw new AuthenticationException(new MultifactorAuthenticationProviderAbsentException());
             }
 
             val providerFound = MultifactorAuthenticationUtils.resolveProvider(providerMap, values.get(0));
@@ -95,12 +96,12 @@ public class HttpRequestMultifactorAuthenticationTrigger implements MultifactorA
         val session = request.getSession(false);
         var attributeValue = session != null ? session.getAttribute(attributeName) : null;
         if (attributeValue == null) {
-            LOGGER.debug("No value could be found for session attribute [{}]. Checking request attributes...", attributeName);
+            LOGGER.trace("No value could be found for session attribute [{}]. Checking request attributes...", attributeName);
             attributeValue = request.getAttribute(attributeName);
         }
 
         if (attributeValue == null) {
-            LOGGER.debug("No value could be found for [{}]", attributeName);
+            LOGGER.trace("No value could be found for [{}]", attributeName);
             return null;
         }
 

@@ -60,15 +60,19 @@ public class MockTicketGrantingTicket implements TicketGrantingTicket, TicketSta
     public MockTicketGrantingTicket(final String principal, final Credential c, final Map attributes) {
         id = ID_GENERATOR.getNewTicketId("TGT");
         val metaData = new BasicCredentialMetaData(c);
-        authentication = new DefaultAuthenticationBuilder(new DefaultPrincipalFactory()
-            .createPrincipal(principal, attributes)).addCredential(metaData)
+        authentication = new DefaultAuthenticationBuilder(new DefaultPrincipalFactory().createPrincipal(principal, attributes))
+            .addCredential(metaData)
             .addSuccess(SimpleTestUsernamePasswordAuthenticationHandler.class.getName(),
                 new DefaultAuthenticationHandlerExecutionResult(new SimpleTestUsernamePasswordAuthenticationHandler(), metaData)).build();
         created = ZonedDateTime.now(ZoneOffset.UTC);
     }
 
     public MockTicketGrantingTicket(final String principal) {
-        this(principal, CoreAuthenticationTestUtils.getCredentialsWithDifferentUsernameAndPassword("uid", "password"), new HashMap());
+        this(principal, new HashMap());
+    }
+
+    public MockTicketGrantingTicket(final String principal, final Map attributes) {
+        this(principal, CoreAuthenticationTestUtils.getCredentialsWithDifferentUsernameAndPassword("uid", "password"), attributes);
     }
 
     @Override
@@ -85,7 +89,7 @@ public class MockTicketGrantingTicket implements TicketGrantingTicket, TicketSta
     public ServiceTicket grantServiceTicket(final String id, final Service service, final ExpirationPolicy expirationPolicy,
                                             final boolean credentialProvided, final boolean onlyTrackMostRecentSession) {
         update();
-        return new MockServiceTicket(id, service, this);
+        return new MockServiceTicket(id, service, this, expirationPolicy);
     }
 
     @Override

@@ -8,7 +8,7 @@ import org.apereo.cas.web.support.WebUtils;
 
 import lombok.Getter;
 import lombok.val;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -17,7 +17,7 @@ import org.springframework.mock.web.MockServletContext;
 import org.springframework.webflow.context.servlet.ServletExternalContext;
 import org.springframework.webflow.test.MockRequestContext;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 /**
@@ -61,9 +61,9 @@ public class DefaultAcceptableUsagePolicyRepositoryTests extends BaseAcceptableU
         WebUtils.putTicketGrantingTicketInScopes(context, "TGT-12345");
 
         val c = CoreAuthenticationTestUtils.getCredentialsWithSameUsernameAndPassword("casaup");
-        assertFalse(repo.verify(context, c).getLeft());
+        assertFalse(repo.verify(context, c).isAccepted());
         assertTrue(repo.submit(context, c));
-        assertTrue(repo.verify(context, c).getLeft());
+        assertTrue(repo.verify(context, c).isAccepted());
     }
 
     @Override

@@ -104,7 +104,7 @@ public abstract class AbstractCasMultifactorWebflowConfigurer extends AbstractCa
     protected void registerMultifactorProviderAuthenticationWebflow(final Flow flow, final String subflowId,
                                                                     final FlowDefinitionRegistry mfaProviderFlowRegistry,
                                                                     final String providerId) {
-        if (mfaProviderFlowRegistry.containsFlowDefinition(subflowId)) {
+        if (!mfaProviderFlowRegistry.containsFlowDefinition(subflowId)) {
             LOGGER.warn("Could not locate flow id [{}]", subflowId);
             return;
         }
@@ -181,14 +181,17 @@ public abstract class AbstractCasMultifactorWebflowConfigurer extends AbstractCa
 
             LOGGER.trace("Creating transition [{}] for state [{}]", subflowId, actionState.getId());
             createTransitionForState(actionState, subflowId, subflowId);
-
-            registerMultifactorFlowDefinitionIntoLoginFlowRegistry(mfaProviderFlowRegistry);
-            augmentMultifactorProviderFlowRegistry(mfaProviderFlowRegistry);
-
-            LOGGER.trace("Registering the [{}] flow into the flow [{}]", subflowId, flow.getId());
-            val startState = flow.getTransitionableState(flow.getStartState().getId());
-            createTransitionForState(startState, subflowId, subflowId);
         });
+
+        registerMultifactorFlowDefinitionIntoLoginFlowRegistry(mfaProviderFlowRegistry);
+        augmentMultifactorProviderFlowRegistry(mfaProviderFlowRegistry);
+
+        LOGGER.trace("Registering the [{}] flow into the flow [{}]", subflowId, flow.getId());
+        val startState = flow.getTransitionableState(flow.getStartState().getId());
+        createTransitionForState(startState, subflowId, subflowId);
+
+        val initState = flow.getTransitionableState(CasWebflowConstants.STATE_ID_INITIAL_AUTHN_REQUEST_VALIDATION_CHECK);
+        createTransitionForState(initState, subflowId, subflowId);
     }
 
     protected Collection<String> getCandidateStatesForMultifactorAuthentication() {

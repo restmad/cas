@@ -72,7 +72,8 @@ public class JpaTicketRegistry extends AbstractTicketRegistry {
 
     @Override
     public long deleteAll() {
-        return this.ticketCatalog.findAll().stream()
+        return this.ticketCatalog.findAll()
+            .stream()
             .map(JpaTicketRegistry::getTicketEntityName)
             .map(entityName -> entityManager.createQuery(String.format("delete from %s", entityName)))
             .mapToLong(Query::executeUpdate)
@@ -122,7 +123,6 @@ public class JpaTicketRegistry extends AbstractTicketRegistry {
      * @return tickets
      */
     @Override
-    @SuppressWarnings("unchecked")
     public Stream<? extends Ticket> getTicketsStream() {
         return this.ticketCatalog.findAll()
             .stream()

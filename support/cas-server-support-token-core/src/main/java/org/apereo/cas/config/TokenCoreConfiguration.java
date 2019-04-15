@@ -4,10 +4,12 @@ import org.apereo.cas.CipherExecutor;
 import org.apereo.cas.configuration.CasConfigurationProperties;
 import org.apereo.cas.services.ServicesManager;
 import org.apereo.cas.ticket.ExpirationPolicy;
-import org.apereo.cas.token.JWTTokenCipherSigningPublicKeyEndpoint;
-import org.apereo.cas.token.JWTTokenTicketBuilder;
+import org.apereo.cas.token.JwtBuilder;
+import org.apereo.cas.token.JwtTokenCipherSigningPublicKeyEndpoint;
+import org.apereo.cas.token.JwtTokenTicketBuilder;
 import org.apereo.cas.token.TokenTicketBuilder;
-import org.apereo.cas.token.cipher.TokenTicketCipherExecutor;
+import org.apereo.cas.token.cipher.JwtTicketCipherExecutor;
+import org.apereo.cas.token.cipher.RegisteredServiceJwtTicketCipherExecutor;
 import org.apereo.cas.util.function.FunctionUtils;
 
 import lombok.extern.slf4j.Slf4j;
@@ -69,7 +71,7 @@ public class TokenCoreConfiguration {
             .get();
 
         if (enabled) {
-            return new TokenTicketCipherExecutor(crypto.getEncryption().getKey(),
+            return new JwtTicketCipherExecutor(crypto.getEncryption().getKey(),
                 crypto.getSigning().getKey(),
                 crypto.getAlg(),
                 crypto.isEncryptionEnabled(),
@@ -87,16 +89,25 @@ public class TokenCoreConfiguration {
     @Bean
     @ConditionalOnMissingBean(name = "tokenTicketBuilder")
     public TokenTicketBuilder tokenTicketBuilder() {
-        return new JWTTokenTicketBuilder(casClientTicketValidator.getIfAvailable(),
+        return new JwtTokenTicketBuilder(casClientTicketValidator.getIfAvailable(),
+            grantingTicketExpirationPolicy.getIfAvailable(),
+            tokenTicketJwtBuilder());
+    }
+
+    @RefreshScope
+    @Bean
+    @ConditionalOnMissingBean(name = "tokenTicketJwtBuilder")
+    public JwtBuilder tokenTicketJwtBuilder() {
+        return new JwtBuilder(
             casProperties.getServer().getPrefix(),
             tokenCipherExecutor(),
-            grantingTicketExpirationPolicy.getIfAvailable(),
-            servicesManager.getIfAvailable());
+            servicesManager.getIfAvailable(),
+            new RegisteredServiceJwtTicketCipherExecutor());
     }
 
     @Bean
     @ConditionalOnEnabledEndpoint
-    public JWTTokenCipherSigningPublicKeyEndpoint jwtTokenCipherSigningPublicKeyEndpoint() {
-        return new JWTTokenCipherSigningPublicKeyEndpoint(tokenCipherExecutor(), this.servicesManager.getIfAvailable());
+    public JwtTokenCipherSigningPublicKeyEndpoint jwtTokenCipherSigningPublicKeyEndpoint() {
+        return new JwtTokenCipherSigningPublicKeyEndpoint(casProperties, tokenCipherExecutor(), this.servicesManager.getIfAvailable());
     }
 }

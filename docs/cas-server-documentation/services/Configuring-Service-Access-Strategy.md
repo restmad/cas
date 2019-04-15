@@ -20,13 +20,12 @@ The default strategy allows one to configure a service with the following proper
 | Field                             | Description
 |-----------------------------------|---------------------------------------------------------------------------------
 | `enabled`                         | Flag to toggle whether the entry is active; a disabled entry produces behavior equivalent to a non-existent entry.
-| `ssoEnabled`                      | Set to `false` to force users to authenticate to the service regardless of protocol flags (e.g. `renew=true`). This flag provides some support for centralized application of security policy.
+| `ssoEnabled`                      | Set to `false` to force users to authenticate to the service regardless of protocol flags (e.g. `renew=true`).
 | `requiredAttributes`              | A `Map` of required principal attribute names along with the set of values for each attribute. These attributes **MUST** be available to the authenticated Principal and resolved before CAS can proceed, providing an option for role-based access control from the CAS perspective. If no required attributes are presented, the check will be entirely ignored.
 | `requireAllAttributes`            | Flag to toggle to control the behavior of required attributes. Default is `true`, which means all required attribute names must be present. Otherwise, at least one matching attribute name may suffice. Note that this flag only controls which and how many of the attribute **names** must be present. If attribute names satisfy the CAS configuration, at the next step at least one matching attribute value is required for the access strategy to proceed successfully.
 | `unauthorizedRedirectUrl`         | Optional url to redirect the flow in case service access is not allowed.
 | `caseInsensitive`                 | Indicates whether matching on required attribute values should be done in a case-insensitive manner. Default is `false`
 | `rejectedAttributes`              | A `Map` of rejected principal attribute names along with the set of values for each attribute. These attributes **MUST NOT** be available to the authenticated Principal so that access may be granted. If none is defined, the check is entirely ignored.
-
 
 <div class="alert alert-info"><strong>Are we sensitive to case?</strong><p>Note that comparison of principal/required attribute <strong>names</strong> is
 case-sensitive. Exact matches are required for any individual attribute name.</p></div>
@@ -51,24 +50,6 @@ Service is not allowed to use CAS:
     "@class" : "org.apereo.cas.services.DefaultRegisteredServiceAccessStrategy",
     "enabled" : false,
     "ssoEnabled" : true
-  }
-}
-```
-
-#### Disable Service SSO Access
-
-Service will be challenged to present credentials every time, thereby not using SSO:
-
-```json
-{
-  "@class" : "org.apereo.cas.services.RegexRegisteredService",
-  "serviceId" : "testId",
-  "name" : "testId",
-  "id" : 1,
-  "accessStrategy" : {
-    "@class" : "org.apereo.cas.services.DefaultRegisteredServiceAccessStrategy",
-    "enabled" : true,
-    "ssoEnabled" : false
   }
 }
 ```
@@ -116,6 +97,82 @@ To access the service, the principal must have a `cn` attribute whose value is e
   }
 }
 ```
+
+#### Static Unauthorized Redirect URL
+
+Service access is denied if the principal does *not* have a `cn` attribute containing the value `super-user`. If so,
+the user will be redirected to `https://www.github.com` instead.
+
+```json
+{
+  "@class": "org.apereo.cas.services.RegexRegisteredService",
+  "serviceId" : "testId",
+  "name" : "testId",
+  "id": 1,
+  "accessStrategy" : {
+    "@class" : "org.apereo.cas.services.DefaultRegisteredServiceAccessStrategy",
+    "unauthorizedRedirectUrl" : "https://www.github.com",
+    "requiredAttributes" : {
+      "@class" : "java.util.HashMap",
+      "cn" : [ "java.util.HashSet", [ "super-user" ] ]
+    }
+  }
+}
+```
+
+#### Dynamic Unauthorized Redirect URL
+
+Service access is denied if the principal does *not* have a `cn` attribute containing the value `super-user`. If so, the redirect URL
+will be dynamically determined based on outcome of the specified Groovy script.
+
+```json
+{
+  "@class": "org.apereo.cas.services.RegexRegisteredService",
+  "serviceId" : "testId",
+  "name" : "testId",
+  "id": 1,
+  "accessStrategy" : {
+    "@class" : "org.apereo.cas.services.DefaultRegisteredServiceAccessStrategy",
+    "unauthorizedRedirectUrl" : "file:/etc/cas/config/unauthz-redirect-url.groovy",
+    "requiredAttributes" : {
+      "@class" : "java.util.HashMap",
+      "cn" : [ "java.util.HashSet", [ "super-user" ] ]
+    }
+  }
+}
+```
+
+The script itself will take the following form:
+
+```groovy
+import org.apereo.cas.*
+import org.apereo.cas.web.support.*
+import java.util.*
+import java.net.*
+import org.apereo.cas.authentication.*
+
+def URI run(final Object... args) {
+    def registeredService = args[0]
+    def requestContext = args[1]
+    def applicationContext = args[2]
+    def logger = args[3]
+    
+    logger.info("Redirecting to somewhere, processing [{}]", registeredService.name)
+    /**
+     * Stuff Happens...
+     */
+    return new URI("https://www.github.com");
+}
+```
+
+The following parameters are provided to the script:
+
+| Field                             | Description
+|-----------------------------------|---------------------------------------------------------------------------------
+| `registeredService`   | The object representing the matching registered service in the registry.
+| `requestContext`      | The object representing the Spring Webflow `RequestContext`.
+| `applicationContext`  | The object representing the Spring `ApplicationContext`.
+| `logger`              | The object responsible for issuing log messages such as `logger.info(...)`.
 
 #### Enforce Combined Attribute Conditions
 

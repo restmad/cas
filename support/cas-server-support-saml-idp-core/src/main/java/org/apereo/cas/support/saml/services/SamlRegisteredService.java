@@ -66,6 +66,9 @@ public class SamlRegisteredService extends RegexRegisteredService {
     @Column
     private String metadataSignatureLocation;
 
+    @Column
+    private boolean requireSignedRoot = true;
+    
     @Column(name = "spNameIdQualifier")
     private String serviceProviderNameIdQualifier;
 
@@ -77,6 +80,9 @@ public class SamlRegisteredService extends RegexRegisteredService {
 
     @Column
     private String signingCredentialFingerprint;
+
+    @Column
+    private String issuerEntityId;
 
     @Column
     private boolean signAssertions;
@@ -134,6 +140,12 @@ public class SamlRegisteredService extends RegexRegisteredService {
     @MapKeyColumn(name = "attribute_name")
     @Column(name = "attribute_value")
     private Map<String, String> attributeFriendlyNames = new TreeMap<>();
+
+    @ElementCollection
+    @CollectionTable(name = "SamlRegisteredService_AttributeValueTypes")
+    @MapKeyColumn(name = "attribute_name")
+    @Column(name = "attribute_type")
+    private Map<String, String> attributeValueTypes = new TreeMap<>();
 
     @Lob
     @Column(name = "encryptable_attrs", length = Integer.MAX_VALUE)

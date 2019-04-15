@@ -9,6 +9,10 @@ category: Configuration
 This document describes a number of suggestions and configuration options that apply to and are common amongst a selection of CAS modules and features. 
 To see the full list of CAS properties, please [review this guide](Configuration-Properties.html).
 
+## What is `${configurationKey}`?
+
+Many CAS *sub* settings are common and applicable to a number of modules and features. For example, in dealing with database authentication there are a number of database-related modules who own an individual setting to define the database driver. These settings would typically be defined as `cas.authn.feature1.databaseDriver=xyz` and `cas.authn.feature2.databaseDriver=abc`. Rather than duplicating the shared and common `databaseDriver` setting, this page attempts to collect only what might be common CAS settings across features and modules while referring to the specific feature under the path `${configurationKey}`. Therefor, the documentation for either `feature1` or `feature2` might allow one to find common database-related settings (such as the `databaseDriver`) under `${configurationKey}.databaseDriver` where `${configurationKey}` would either be `cas.authn.feature1` or `cas.authn.feature2` depending on feature at hand. The notes and documentation for each feature that wants to inherit from a common block of settings should always advertise the appropriate value for `${configurationKey}`.
+
 ## Naming Convention
 
 - Settings and properties that are controlled by the CAS platform directly always begin with the prefix `cas`. All other settings are controlled 
@@ -117,8 +121,9 @@ The following options are supported:
 | `DEFAULT`               | Use the `DefaultPasswordEncoder` of CAS. For message-digest algorithms via `characterEncoding` and `encodingAlgorithm`.
 | `BCRYPT`                | Use the `BCryptPasswordEncoder` based on the `strength` provided and an optional `secret`.     
 | `SCRYPT`                | Use the `SCryptPasswordEncoder`.
-| `PBKDF2`                | Use the `Pbkdf2PasswordEncoder` based on the `strength` provided and an optional `secret`.  
-| `STANDARD`              | Use the `StandardPasswordEncoder` based on the `secret` provided.  
+| `PBKDF2`                | Use the `Pbkdf2PasswordEncoder` based on the `strength` provided and an optional `secret`.
+| `STANDARD`              | Use the `StandardPasswordEncoder` based on the `secret` provided.
+| `GLIBC_CRYPT`           | Use the `GlibcCryptPasswordEncoder` based on the [`encodingAlgorithm`](https://commons.apache.org/proper/commons-codec/archives/1.10/apidocs/org/apache/commons/codec/digest/Crypt.html), `strength` provided and an optional `secret`.
 | `org.example.MyEncoder` | An implementation of `PasswordEncoder` of your own choosing.
 | `file:///path/to/script.groovy` | Path to a Groovy script charged with handling password encoding operations.
 
@@ -208,6 +213,28 @@ The following common properties configure cookie generator support in CAS.
 # ${configurationKey}.httpOnly=true
 # ${configurationKey}.secure=true
 # ${configurationKey}.maxAge=-1
+```
+
+## Cassandra Configuration
+
+Control properties that are relevant to Cassandra,
+when CAS attempts to establish connections, run queries, etc.
+
+```properties
+# ${configurationKey}.keyspace=
+# ${configurationKey}.port=9042
+# ${configurationKey}.contactPoints=localhost1,localhost2
+# ${configurationKey}.localDc=
+# ${configurationKey}.protocolVersion=V1|V2|V3|V4
+# ${configurationKey}.retryPolicy=DEFAULT_RETRY_POLICY|DOWNGRADING_CONSISTENCY_RETRY_POLICY|FALLTHROUGH_RETRY_POLICY
+# ${configurationKey}.compression=LZ4|SNAPPY|NONE
+# ${configurationKey}.consistencyLevel=ANY|ONE|TWO|THREE|QUORUM|LOCAL_QUORUM|ALL|EACH_QUORUM|LOCAL_SERIAL|SERIAL|LOCAL_ONE
+# ${configurationKey}.serialConsistencyLevel=ANY|ONE|TWO|THREE|QUORUM|LOCAL_QUORUM|ALL|EACH_QUORUM|LOCAL_SERIAL|SERIAL|LOCAL_ONE
+# ${configurationKey}.maxConnections=10
+# ${configurationKey}.coreConnections=1
+# ${configurationKey}.maxRequestsPerConnection=1024
+# ${configurationKey}.connectTimeoutMillis=5000
+# ${configurationKey}.readTimeoutMillis=5000
 ```
 
 ## Hibernate & JDBC
@@ -416,6 +443,8 @@ The following options related to Person Directory support in CAS when it attempt
 # ${configurationKey}.returnNull=false
 # ${configurationKey}.principalResolutionFailureFatal=false
 # ${configurationKey}.useExistingPrincipalId=false
+# ${configurationKey}.attributeResolutionEnabled=true
+# ${configurationKey}.activeAttributeRepositoryIds=StubRepository,etc
 ```
 
 ## InfluxDb Configuration
@@ -451,6 +480,7 @@ More advanced Hazelcast configuration settings are listed below, given the compo
 # ${configurationKey}.cluster.tcpipEnabled=true
 
 # ${configurationKey}.cluster.partitionMemberGroupType=HOST_AWARE|CUSTOM|PER_MEMBER|ZONE_AWARE|SPI
+# ${configurationKey}.cluster.mapMergePolicy=com.hazelcast.map.merge.PutIfAbsentMapMergePolicy
 
 # ${configurationKey}.cluster.evictionPolicy=LRU
 # ${configurationKey}.cluster.maxNoHeartbeatSeconds=300
@@ -711,6 +741,7 @@ The following options related to Redis support in CAS apply equally to a number 
 # ${configurationKey}.redis.password=
 # ${configurationKey}.redis.timeout=2000
 # ${configurationKey}.redis.useSsl=false
+# ${configurationKey}.redis.readFrom=MASTER
 
 # ${configurationKey}.redis.pool.max-active=20
 # ${configurationKey}.redis.pool.maxIdle=8
@@ -729,9 +760,9 @@ The following options related to Redis support in CAS apply equally to a number 
 # ${configurationKey}.redis.pool.testWhileIdle=false
 
 # ${configurationKey}.redis.sentinel.master=mymaster
-# ${configurationKey}.redis.sentinel.nodes[0]=localhost:26377
-# ${configurationKey}.redis.sentinel.nodes[1]=localhost:26378
-# ${configurationKey}.redis.sentinel.nodes[2]=localhost:26379
+# ${configurationKey}.redis.sentinel.node[0]=localhost:26377
+# ${configurationKey}.redis.sentinel.node[1]=localhost:26378
+# ${configurationKey}.redis.sentinel.node[2]=localhost:26379
 ```
 
 ## DDL Configuration
@@ -811,8 +842,6 @@ All configurable multifactor authentication providers have these base properties
 The following bypass options apply equally to multifactor authentication providers given the provider's *configuration key*:
 
 ```properties
-# ${configurationKey}.bypass.type=DEFAULT|GROOVY|REST
-
 # ${configurationKey}.bypass.principalAttributeName=bypass|skip
 # ${configurationKey}.bypass.principalAttributeValue=true|enabled.+
 
@@ -827,7 +856,7 @@ The following bypass options apply equally to multifactor authentication provide
 # ${configurationKey}.bypass.httpRequestRemoteAddress=127.+|example.*
 # ${configurationKey}.bypass.httpRequestHeaders=header-X-.+|header-Y-.+
 
-# ${configurationKey}.groovy.location=file:/etc/cas/config/mfa-bypass.groovy
+# ${configurationKey}.bypass.groovy.location=file:/etc/cas/config/mfa-bypass.groovy
 ```
 
 If multifactor authentication bypass is determined via REST, 
@@ -986,6 +1015,10 @@ The following options are shared and apply when CAS is configured to send email 
 # ${configurationKey}.mail.subject=
 # ${configurationKey}.mail.cc=
 # ${configurationKey}.mail.bcc=
+# ${configurationKey}.mail.replyTo=
+# ${configurationKey}.mail.validateAddresses=false
+# ${configurationKey}.mail.html=false
+
 # ${configurationKey}.mail.attributeName=mail
 ```
 
@@ -1039,6 +1072,8 @@ to an external OpenID Connect provider such as Azure AD, given the provider's *c
 # ${configurationKey}.scope=
 # ${configurationKey}.useNonce=
 # ${configurationKey}.preferredJwsAlgorithm=
+# ${configurationKey}.responseMode=
+# ${configurationKey}.responseType=
 # ${configurationKey}.customParams.param1=value1
 ```
 
@@ -1056,6 +1091,9 @@ The following  options apply  to features that integrate with an LDAP server (i.
 #${configurationKey}.providerClass=org.ldaptive.provider.unboundid.UnboundIDProvider
 #${configurationKey}.connectTimeout=PT5S
 #${configurationKey}.trustCertificates=
+#${configurationKey}.trustStore=
+#${configurationKey}.trustStorePassword=
+#${configurationKey}.trustStoreType=JKS|JCEKS|PKCS12
 #${configurationKey}.keystore=
 #${configurationKey}.keystorePassword=
 #${configurationKey}.keystoreType=JKS|JCEKS|PKCS12

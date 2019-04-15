@@ -1,14 +1,14 @@
 package org.apereo.cas.web.flow;
 
 import org.apereo.cas.ticket.TicketGrantingTicket;
-import org.apereo.cas.web.support.CookieRetrievingCookieGenerator;
+import org.apereo.cas.web.cookie.CasCookieBuilder;
 import org.apereo.cas.web.support.WebUtils;
 
 import lombok.val;
 import org.apereo.inspektr.common.web.ClientInfo;
 import org.apereo.inspektr.common.web.ClientInfoHolder;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -20,7 +20,7 @@ import org.springframework.webflow.test.MockRequestContext;
 
 import javax.servlet.http.Cookie;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 /**
@@ -39,11 +39,11 @@ public class SendTicketGrantingTicketActionTests extends AbstractWebflowActionsT
 
     @Autowired
     @Qualifier("ticketGrantingTicketCookieGenerator")
-    private CookieRetrievingCookieGenerator ticketGrantingTicketCookieGenerator;
+    private CasCookieBuilder ticketGrantingTicketCookieGenerator;
 
     private MockRequestContext context;
 
-    @Before
+    @BeforeEach
     public void onSetUp() {
         this.context = new MockRequestContext();
     }

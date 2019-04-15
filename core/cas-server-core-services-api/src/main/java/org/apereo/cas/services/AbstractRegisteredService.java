@@ -93,6 +93,18 @@ public abstract class AbstractRegisteredService implements RegisteredService {
     @Column(name = "proxy_policy", length = Integer.MAX_VALUE)
     private RegisteredServiceProxyPolicy proxyPolicy = new RefuseRegisteredServiceProxyPolicy();
 
+    @Lob
+    @Column(name = "proxy_ticket_expiration_policy", length = Integer.MAX_VALUE)
+    private RegisteredServiceProxyTicketExpirationPolicy proxyTicketExpirationPolicy;
+
+    @Lob
+    @Column(name = "service_ticket_expiration_policy", length = Integer.MAX_VALUE)
+    private RegisteredServiceServiceTicketExpirationPolicy serviceTicketExpirationPolicy;
+
+    @Lob
+    @Column(name = "sso_participation_policy", length = Integer.MAX_VALUE)
+    private RegisteredServiceSingleSignOnParticipationPolicy singleSignOnParticipationPolicy;
+
     @Column(name = "evaluation_order", nullable = false)
     private int evaluationOrder;
 

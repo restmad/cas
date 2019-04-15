@@ -19,6 +19,7 @@ import org.apereo.cas.authentication.adaptive.AdaptiveAuthenticationPolicy;
 import org.apereo.cas.authentication.principal.ClientCredential;
 import org.apereo.cas.authentication.principal.Service;
 import org.apereo.cas.authentication.principal.WebApplicationServiceFactory;
+import org.apereo.cas.configuration.CasConfigurationProperties;
 import org.apereo.cas.services.DefaultRegisteredServiceAccessStrategy;
 import org.apereo.cas.services.DefaultRegisteredServiceDelegatedAuthenticationPolicy;
 import org.apereo.cas.services.RegisteredServiceAccessStrategy;
@@ -36,19 +37,16 @@ import org.apereo.cas.web.DelegatedClientNavigationController;
 import org.apereo.cas.web.DelegatedClientWebflowManager;
 import org.apereo.cas.web.flow.resolver.CasDelegatingWebflowEventResolver;
 import org.apereo.cas.web.flow.resolver.CasWebflowEventResolver;
-import org.apereo.cas.web.pac4j.DelegatedSessionCookieManager;
-import org.apereo.cas.web.pac4j.SessionStoreCookieSerializer;
-import org.apereo.cas.web.support.CookieRetrievingCookieGenerator;
 import org.apereo.cas.web.support.DefaultArgumentExtractor;
 
+import lombok.SneakyThrows;
 import lombok.val;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ExpectedException;
+import org.junit.jupiter.api.Test;
 import org.pac4j.core.client.BaseClient;
 import org.pac4j.core.client.Clients;
 import org.pac4j.core.context.Pac4jConstants;
 import org.pac4j.core.context.WebContext;
+import org.pac4j.core.context.session.J2ESessionStore;
 import org.pac4j.oauth.client.FacebookClient;
 import org.pac4j.oauth.client.TwitterClient;
 import org.pac4j.oauth.credentials.OAuth20Credentials;
@@ -63,11 +61,12 @@ import org.springframework.webflow.context.servlet.ServletExternalContext;
 import org.springframework.webflow.execution.Event;
 import org.springframework.webflow.test.MockRequestContext;
 
+import java.util.Arrays;
+import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 /**
@@ -89,22 +88,22 @@ public class DelegatedClientAuthenticationActionTests {
     private static final String MY_SERVICE = "http://myservice";
 
     private static final String MY_THEME = "my_theme";
-
-    @Rule
-    public ExpectedException thrown = ExpectedException.none();
+    private static final List<String> CLIENTS = Arrays.asList("FacebookClient", "TwitterClient");
 
     @Test
-    public void verifyStartAuthenticationNoService() throws Exception {
-        verifyStartAuthentication(null);
+    public void verifyStartAuthenticationNoService() {
+        assertStartAuthentication(null);
     }
 
     @Test
-    public void verifyStartAuthenticationWithService() throws Exception {
+    public void verifyStartAuthenticationWithService() {
         val service = RegisteredServiceTestUtils.getService(MY_SERVICE);
-        verifyStartAuthentication(service);
+        assertStartAuthentication(service);
     }
 
-    private void verifyStartAuthentication(final Service service) throws Exception {
+    @SuppressWarnings("unchecked")
+    @SneakyThrows
+    private void assertStartAuthentication(final Service service) {
         val mockResponse = new MockHttpServletResponse();
         val mockRequest = new MockHttpServletRequest();
         val locale = Locale.getDefault().getCountry();
@@ -132,20 +131,23 @@ public class DelegatedClientAuthenticationActionTests {
         val ticketRegistry = new DefaultTicketRegistry();
         val manager = new DelegatedClientWebflowManager(ticketRegistry,
             new DefaultTransientSessionTicketFactory(new HardTimeoutExpirationPolicy(60)),
-            ThemeChangeInterceptor.DEFAULT_PARAM_NAME, LocaleChangeInterceptor.DEFAULT_PARAM_NAME,
+            new CasConfigurationProperties(),
             new DefaultAuthenticationServiceSelectionPlan(new DefaultAuthenticationServiceSelectionStrategy()),
             new DefaultArgumentExtractor(new WebApplicationServiceFactory()));
-        val ticket = manager.store(Pac4jUtils.getPac4jJ2EContext(mockRequest, new MockHttpServletResponse()), facebookClient);
+
+        val webContext = Pac4jUtils.getPac4jJ2EContext(mockRequest, new MockHttpServletResponse(), new J2ESessionStore());
+        val ticket = manager.store(webContext, facebookClient);
 
         mockRequest.addParameter(DelegatedClientWebflowManager.PARAMETER_CLIENT_ID, ticket.getId());
 
         val strategy = new DefaultRegisteredServiceAccessStrategy();
-        strategy.setDelegatedAuthenticationPolicy(new DefaultRegisteredServiceDelegatedAuthenticationPolicy(CollectionUtils.wrapList(facebookClient.getName())));
+        strategy.setDelegatedAuthenticationPolicy(
+            new DefaultRegisteredServiceDelegatedAuthenticationPolicy(CollectionUtils.wrapList(facebookClient.getName()), true));
 
         val event = getDelegatedClientAction(facebookClient, service, clients, mockRequest, strategy).execute(mockRequestContext);
         assertEquals("error", event.getId());
 
-        manager.retrieve(mockRequestContext, Pac4jUtils.getPac4jJ2EContext(mockRequest, new MockHttpServletResponse()), facebookClient);
+        manager.retrieve(mockRequestContext, webContext, facebookClient);
 
         assertEquals(MY_THEME, mockRequest.getAttribute(ThemeChangeInterceptor.DEFAULT_PARAM_NAME));
         assertEquals(Locale.getDefault().getCountry(), mockRequest.getAttribute(LocaleChangeInterceptor.DEFAULT_PARAM_NAME));
@@ -159,21 +161,31 @@ public class DelegatedClientAuthenticationActionTests {
         urls.stream()
             .map(url -> UriComponentsBuilder.fromUriString(url.getRedirectUrl()).build())
             .forEach(uriComponents -> {
-                assertThat(uriComponents.getPath()).isEqualTo(DelegatedClientNavigationController.ENDPOINT_REDIRECT);
-                assertThat(uriComponents.getQueryParams().get(Pac4jConstants.DEFAULT_CLIENT_NAME_PARAMETER)).hasSize(1).isSubsetOf("FacebookClient", "TwitterClient");
+                assertEquals(DelegatedClientNavigationController.ENDPOINT_REDIRECT, uriComponents.getPath());
+                val clientName = uriComponents.getQueryParams().get(Pac4jConstants.DEFAULT_CLIENT_NAME_PARAMETER);
+                assertEquals(1, clientName.size());
+                assertTrue(CLIENTS.containsAll(clientName));
+                val serviceName = uriComponents.getQueryParams().get(CasProtocolConstants.PARAMETER_SERVICE);
                 if (service != null) {
-                    assertThat(uriComponents.getQueryParams().get(CasProtocolConstants.PARAMETER_SERVICE)).hasSize(1).contains(MY_SERVICE);
+                    assertEquals(1, serviceName.size());
+                    assertTrue(serviceName.contains(MY_SERVICE));
                 } else {
-                    assertThat(uriComponents.getQueryParams().get(CasProtocolConstants.PARAMETER_SERVICE)).isNull();
+                    assertNull(serviceName);
                 }
-                assertThat(uriComponents.getQueryParams().get(CasProtocolConstants.PARAMETER_METHOD)).hasSize(1).contains(HttpMethod.POST.toString());
-                assertThat(uriComponents.getQueryParams().get(ThemeChangeInterceptor.DEFAULT_PARAM_NAME)).hasSize(1).contains(MY_THEME);
-                assertThat(uriComponents.getQueryParams().get(LocaleChangeInterceptor.DEFAULT_PARAM_NAME)).hasSize(1).contains(locale);
+                val method = uriComponents.getQueryParams().get(CasProtocolConstants.PARAMETER_METHOD);
+                assertEquals(1, method.size());
+                assertTrue(method.contains(HttpMethod.POST.toString()));
+                val theme = uriComponents.getQueryParams().get(ThemeChangeInterceptor.DEFAULT_PARAM_NAME);
+                assertEquals(1, theme.size());
+                assertTrue(theme.contains(MY_THEME));
+                val testLocale = uriComponents.getQueryParams().get(LocaleChangeInterceptor.DEFAULT_PARAM_NAME);
+                assertEquals(1, testLocale.size());
+                assertTrue(testLocale.contains(locale));
             });
     }
 
     @Test
-    public void verifyFinishAuthenticationAuthzFailure() throws Exception {
+    public void verifyFinishAuthenticationAuthzFailure() {
         val mockRequest = new MockHttpServletRequest();
         mockRequest.setParameter(Pac4jConstants.DEFAULT_CLIENT_NAME_PARAMETER, "FacebookClient");
         val service = CoreAuthenticationTestUtils.getService(MY_SERVICE);
@@ -198,12 +210,13 @@ public class DelegatedClientAuthenticationActionTests {
         val strategy = new DefaultRegisteredServiceAccessStrategy();
         strategy.setEnabled(false);
 
-        thrown.expect(UnauthorizedServiceException.class);
-        getDelegatedClientAction(facebookClient, service, clients, mockRequest, strategy).execute(mockRequestContext);
+        assertThrows(UnauthorizedServiceException.class,
+            () -> getDelegatedClientAction(facebookClient, service, clients, mockRequest, strategy).execute(mockRequestContext));
     }
 
     @Test
-    public void verifyFinishAuthentication() throws Exception {
+    @SneakyThrows
+    public void verifyFinishAuthentication() {
         val mockRequest = new MockHttpServletRequest();
         mockRequest.setParameter(Pac4jConstants.DEFAULT_CLIENT_NAME_PARAMETER, "FacebookClient");
 
@@ -230,7 +243,8 @@ public class DelegatedClientAuthenticationActionTests {
         val clients = new Clients(MY_LOGIN_URL, facebookClient);
 
         val strategy = new DefaultRegisteredServiceAccessStrategy();
-        strategy.setDelegatedAuthenticationPolicy(new DefaultRegisteredServiceDelegatedAuthenticationPolicy(CollectionUtils.wrapList(facebookClient.getName())));
+        strategy.setDelegatedAuthenticationPolicy(
+            new DefaultRegisteredServiceDelegatedAuthenticationPolicy(CollectionUtils.wrapList(facebookClient.getName()), true));
 
         val event = getDelegatedClientAction(facebookClient, service, clients, mockRequest, strategy).execute(mockRequestContext);
         assertEquals("success", event.getId());
@@ -286,10 +300,11 @@ public class DelegatedClientAuthenticationActionTests {
         val ticketRegistry = new DefaultTicketRegistry();
         val manager = new DelegatedClientWebflowManager(ticketRegistry,
             new DefaultTransientSessionTicketFactory(new HardTimeoutExpirationPolicy(60)),
-            ThemeChangeInterceptor.DEFAULT_PARAM_NAME, LocaleChangeInterceptor.DEFAULT_PARAM_NAME,
+            new CasConfigurationProperties(),
             new DefaultAuthenticationServiceSelectionPlan(new DefaultAuthenticationServiceSelectionStrategy()),
             new DefaultArgumentExtractor(new WebApplicationServiceFactory()));
-        val ticket = manager.store(Pac4jUtils.getPac4jJ2EContext(mockRequest, new MockHttpServletResponse()), client);
+        val webContext = Pac4jUtils.getPac4jJ2EContext(mockRequest, new MockHttpServletResponse(), new J2ESessionStore());
+        val ticket = manager.store(webContext, client);
 
         mockRequest.addParameter(DelegatedClientWebflowManager.PARAMETER_CLIENT_ID, ticket.getId());
         val initialResolver = mock(CasDelegatingWebflowEventResolver.class);
@@ -303,11 +318,12 @@ public class DelegatedClientAuthenticationActionTests {
             getServicesManagerWith(service, accessStrategy),
             enforcer,
             manager,
-            new DelegatedSessionCookieManager(mock(CookieRetrievingCookieGenerator.class), mock(SessionStoreCookieSerializer.class)),
             support,
             LocaleChangeInterceptor.DEFAULT_PARAM_NAME,
             ThemeChangeInterceptor.DEFAULT_PARAM_NAME,
             new DefaultAuthenticationServiceSelectionPlan(new DefaultAuthenticationServiceSelectionStrategy()),
-            mock(CentralAuthenticationService.class));
+            mock(CentralAuthenticationService.class),
+            SingleSignOnParticipationStrategy.alwaysParticipating(),
+            new J2ESessionStore());
     }
 }

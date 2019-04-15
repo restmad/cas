@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
 
+import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -32,8 +33,8 @@ public class DefaultAuthenticationResultBuilder implements AuthenticationResultB
     private final List<Credential> providedCredentials = new ArrayList<>();
 
     private static void buildAuthenticationHistory(final Set<Authentication> authentications,
-                                                   final Map<String, Object> authenticationAttributes,
-                                                   final Map<String, Object> principalAttributes,
+                                                   final Map<String, List<Object>> authenticationAttributes,
+                                                   final Map<String, List<Object>> principalAttributes,
                                                    final AuthenticationBuilder authenticationBuilder) {
 
         LOGGER.trace("Collecting authentication history based on [{}] authentication events", authentications.size());
@@ -82,6 +83,14 @@ public class DefaultAuthenticationResultBuilder implements AuthenticationResultB
     }
 
     @Override
+    public Optional<Credential> getInitialCredential() {
+        if (this.providedCredentials.isEmpty()) {
+            LOGGER.warn("Provided credentials chain is empty as no credentials have been collected");
+        }
+        return this.providedCredentials.stream().findFirst();
+    }
+
+    @Override
     public AuthenticationResult build(final PrincipalElectionStrategy principalElectionStrategy) {
         return build(principalElectionStrategy, null);
     }
@@ -108,8 +117,8 @@ public class DefaultAuthenticationResultBuilder implements AuthenticationResultB
             LOGGER.warn("No authentication event has been recorded; CAS cannot finalize the authentication result");
             return null;
         }
-        val authenticationAttributes = new HashMap<String, Object>();
-        val principalAttributes = new HashMap<String, Object>();
+        val authenticationAttributes = new HashMap<String, List<Object>>();
+        val principalAttributes = new HashMap<String, List<Object>>();
         val authenticationBuilder = DefaultAuthenticationBuilder.newInstance();
 
         buildAuthenticationHistory(this.authentications, authenticationAttributes, principalAttributes, authenticationBuilder);
@@ -120,7 +129,7 @@ public class DefaultAuthenticationResultBuilder implements AuthenticationResultB
         authenticationBuilder.setAttributes(authenticationAttributes);
         LOGGER.trace("Collected authentication attributes for this result are [{}]", authenticationAttributes);
 
-        authenticationBuilder.setAuthenticationDate(ZonedDateTime.now());
+        authenticationBuilder.setAuthenticationDate(ZonedDateTime.now(ZoneOffset.UTC));
 
         val auth = authenticationBuilder.build();
         LOGGER.trace("Authentication result commenced at [{}]", auth.getAuthenticationDate());
@@ -134,7 +143,7 @@ public class DefaultAuthenticationResultBuilder implements AuthenticationResultB
      */
     private static Principal getPrimaryPrincipal(final PrincipalElectionStrategy principalElectionStrategy,
                                                  final Set<Authentication> authentications,
-                                                 final Map<String, Object> principalAttributes) {
+                                                 final Map<String, List<Object>> principalAttributes) {
         return principalElectionStrategy.nominate(new LinkedHashSet<>(authentications), principalAttributes);
     }
 }

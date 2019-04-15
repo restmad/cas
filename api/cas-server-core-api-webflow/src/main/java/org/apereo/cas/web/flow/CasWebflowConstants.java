@@ -44,6 +44,11 @@ public interface CasWebflowConstants {
     String TRANSITION_ID_ERROR = "error";
 
     /**
+     * The transition state 'resume'.
+     */
+    String TRANSITION_ID_RESUME = "resume";
+
+    /**
      * The transition state 'gateway'.
      */
     String TRANSITION_ID_GATEWAY = "gateway";
@@ -137,6 +142,11 @@ public interface CasWebflowConstants {
      * Enroll transition id.
      */
     String TRANSITION_ID_ENROLL = "enroll";
+
+    /**
+     * Renew transition id.
+     */
+    String TRANSITION_ID_RENEW = "renew";
 
     /**
      * The transition state 'successWithWarnings'.
@@ -364,6 +374,11 @@ public interface CasWebflowConstants {
     String STATE_ID_FINISH_LOGOUT = "finishLogout";
 
     /**
+     * Delegated authentication state id.
+     */
+    String STATE_ID_DELEGATED_AUTHENTICATION = "delegatedAuthenticationAction";
+
+    /**
      * State id 'frontLogout'.
      */
     String STATE_ID_FRONT_LOGOUT = "frontLogout";
@@ -414,11 +429,6 @@ public interface CasWebflowConstants {
     String STATE_ID_CHECK_DO_CHANGE_PASSWORD = "checkDoChangePassword";
 
     /**
-     * Delegated authentication state id.
-     */
-    String STATE_ID_DELEGATED_AUTHENTICATION = "delegatedAuthenticationAction";
-
-    /**
      * State to check if the MFA provider is available.
      */
     String STATE_ID_MFA_CHECK_AVAILABLE = "mfaCheckAvailable";
@@ -433,6 +443,10 @@ public interface CasWebflowConstants {
      */
     String STATE_ID_MFA_PRE_AUTH = "mfaPreAuth";
 
+    /**
+     * The view state 'showAuthenticationWarningMessages'.
+     */
+    String STATE_ID_SHOW_AUTHN_WARNING_MSGS = "showAuthenticationWarningMessages";
     /*
      ****************************************
      * Views.
@@ -457,11 +471,6 @@ public interface CasWebflowConstants {
      * The view state 'error'.
      */
     String VIEW_ID_ERROR = "error";
-
-    /**
-     * The view state 'showAuthenticationWarningMessages'.
-     */
-    String VIEW_ID_SHOW_AUTHN_WARNING_MSGS = "showAuthenticationWarningMessages";
 
     /**
      * View id when MFA provider has been detected as unavailable and failureMode is closed.
@@ -610,7 +619,10 @@ public interface CasWebflowConstants {
      * Actions.
      ****************************************
      */
-
+    /**
+     * Action id 'renderLoginFormAction'.
+     */
+    String ACTION_ID_RENDER_LOGIN_FORM = "renderLoginFormAction";
     /**
      * Action id 'initialFlowSetupAction'.
      */
@@ -672,7 +684,12 @@ public interface CasWebflowConstants {
     String ACTION_ID_CREATE_TICKET_GRANTING_TICKET = "createTicketGrantingTicketAction";
 
     /**
-     * Delegated authentication action id.
+     * Action id `delegatedAuthenticationAction`.
      */
     String ACTION_ID_DELEGATED_AUTHENTICATION = "delegatedAuthenticationAction";
+
+    /**
+     * Action id `renewAuthenticationRequestCheckAction`.
+     */
+    String ACTION_ID_RENEW_AUTHN_REQUEST = "renewAuthenticationRequestCheckAction";
 }

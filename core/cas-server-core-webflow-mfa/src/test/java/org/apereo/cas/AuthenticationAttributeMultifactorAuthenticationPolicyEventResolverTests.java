@@ -6,7 +6,7 @@ import org.apereo.cas.web.flow.resolver.CasWebflowEventResolver;
 import org.apereo.cas.web.support.WebUtils;
 
 import lombok.val;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.binding.expression.support.LiteralExpression;
@@ -20,7 +20,9 @@ import org.springframework.webflow.engine.support.DefaultTargetStateResolver;
 import org.springframework.webflow.engine.support.DefaultTransitionCriteria;
 import org.springframework.webflow.test.MockRequestContext;
 
-import static org.junit.Assert.*;
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * This is {@link AuthenticationAttributeMultifactorAuthenticationPolicyEventResolverTests}.
@@ -55,7 +57,7 @@ public class AuthenticationAttributeMultifactorAuthenticationPolicyEventResolver
         TestMultifactorAuthenticationProvider.registerProviderIntoApplicationContext(applicationContext);
 
         val authn = RegisteredServiceTestUtils.getAuthentication();
-        authn.getAttributes().put("authn-method-dummy", "mfa-dummy");
+        authn.getAttributes().put("authn-method-dummy", List.of("mfa-dummy"));
         WebUtils.putAuthentication(authn, context);
 
         results = authenticationAttributeMultifactorAuthenticationPolicyEventResolver.resolve(context);

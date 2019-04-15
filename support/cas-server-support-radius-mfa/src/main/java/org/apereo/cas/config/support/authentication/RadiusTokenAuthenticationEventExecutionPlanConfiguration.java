@@ -7,11 +7,11 @@ import org.apereo.cas.adaptors.radius.authentication.RadiusMultifactorAuthentica
 import org.apereo.cas.adaptors.radius.authentication.RadiusTokenAuthenticationHandler;
 import org.apereo.cas.adaptors.radius.authentication.RadiusTokenCredential;
 import org.apereo.cas.adaptors.radius.server.NonBlockingRadiusServer;
+import org.apereo.cas.adaptors.radius.server.RadiusServerConfigurationContext;
 import org.apereo.cas.authentication.AuthenticationEventExecutionPlanConfigurer;
 import org.apereo.cas.authentication.AuthenticationMetaDataPopulator;
 import org.apereo.cas.authentication.MultifactorAuthenticationProvider;
-import org.apereo.cas.authentication.MultifactorAuthenticationProviderBypass;
-import org.apereo.cas.authentication.MultifactorAuthenticationUtils;
+import org.apereo.cas.authentication.bypass.MultifactorAuthenticationProviderBypass;
 import org.apereo.cas.authentication.handler.ByCredentialTypeAuthenticationHandlerResolver;
 import org.apereo.cas.authentication.metadata.AuthenticationContextAttributeMetaDataPopulator;
 import org.apereo.cas.authentication.principal.PrincipalFactory;
@@ -50,22 +50,20 @@ public class RadiusTokenAuthenticationEventExecutionPlanConfiguration {
     @Qualifier("servicesManager")
     private ObjectProvider<ServicesManager> servicesManager;
 
+    @Autowired
+    @Qualifier("radiusBypassEvaluator")
+    private ObjectProvider<MultifactorAuthenticationProviderBypass> radiusBypassEvaluator;
+
     @RefreshScope
     @Bean
     public MultifactorAuthenticationProvider radiusMultifactorAuthenticationProvider() {
         val radius = casProperties.getAuthn().getMfa().getRadius();
         val p = new RadiusMultifactorAuthenticationProvider(radiusTokenServers());
-        p.setBypassEvaluator(radiusBypassEvaluator());
+        p.setBypassEvaluator(radiusBypassEvaluator.getIfAvailable());
         p.setFailureMode(radius.getFailureMode());
         p.setOrder(radius.getRank());
         p.setId(radius.getId());
         return p;
-    }
-
-    @Bean
-    @RefreshScope
-    public MultifactorAuthenticationProviderBypass radiusBypassEvaluator() {
-        return MultifactorAuthenticationUtils.newMultifactorAuthenticationProviderBypass(casProperties.getAuthn().getMfa().getRadius().getBypass());
     }
 
     @RefreshScope
@@ -80,11 +78,19 @@ public class RadiusTokenAuthenticationEventExecutionPlanConfiguration {
             client.getInetAddress(), client.getSharedSecret());
 
         val protocol = RadiusProtocol.valueOf(server.getProtocol());
-        val impl = new NonBlockingRadiusServer(protocol, factory, server.getRetries(),
-            server.getNasIpAddress(), server.getNasIpv6Address(),
-            server.getNasPort(), server.getNasPortId(),
-            server.getNasIdentifier(), server.getNasRealPort(), server.getNasPortType());
-
+        val context = RadiusServerConfigurationContext.builder()
+            .protocol(protocol)
+            .radiusClientFactory(factory)
+            .retries(server.getRetries())
+            .nasIpAddress(server.getNasIpAddress())
+            .nasIpv6Address(server.getNasIpv6Address())
+            .nasPort(server.getNasPort())
+            .nasPortId(server.getNasPortId())
+            .nasIdentifier(server.getNasIdentifier())
+            .nasRealPort(server.getNasRealPort())
+            .nasPortType(server.getNasPortType())
+            .build();
+        val impl = new NonBlockingRadiusServer(context);
         list.add(impl);
         return list;
     }
@@ -111,8 +117,8 @@ public class RadiusTokenAuthenticationEventExecutionPlanConfiguration {
     public AuthenticationMetaDataPopulator radiusAuthenticationMetaDataPopulator() {
         val attribute = casProperties.getAuthn().getMfa().getAuthenticationContextAttribute();
         return new AuthenticationContextAttributeMetaDataPopulator(attribute,
-                radiusTokenAuthenticationHandler(),
-                radiusMultifactorAuthenticationProvider().getId()
+            radiusTokenAuthenticationHandler(),
+            radiusMultifactorAuthenticationProvider().getId()
         );
     }
 

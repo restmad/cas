@@ -2,7 +2,6 @@ description = "Apereo CAS SAML Identity Provider Support"
 ext {
     maxParallelForksForTests = 1
 }
-
 dependencies {
     api project(":api:cas-server-core-api-audit")
     api project(":api:cas-server-core-api-webflow")
@@ -41,6 +40,7 @@ dependencies {
     testImplementation project(path: ":core:cas-server-core-services", configuration: "tests")
     testImplementation project(path: ":core:cas-server-core-authentication-api", configuration: "tests")
     testImplementation project(path: ":core:cas-server-core-util-api", configuration: "tests")
+    testImplementation project(path: ":core:cas-server-core-tickets", configuration: "tests")
 
     testImplementation project(":support:cas-server-support-json-service-registry")
     testImplementation project(":support:cas-server-support-jpa-service-registry")
@@ -67,6 +67,5 @@ dependencies {
     testImplementation project(":core:cas-server-core-web")
     testImplementation project(":core:cas-server-core-web-api")
     testImplementation project(":core:cas-server-core-tickets")
-    testImplementation project(path: ":core:cas-server-core-tickets", configuration: "tests")
     testImplementation project(":core:cas-server-core-tickets-api")
 }

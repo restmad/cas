@@ -7,6 +7,14 @@ title: CAS - SAML2 Metadata Management
 
 Management of service provider metadata in a dynamic on-the-fly fashion may be accomplished via strategies outlined here.
 
+## Administrative Endpoints
+
+The following endpoints are provided by CAS:
+ 
+| Endpoint                                 | Description
+|------------------------------------------|--------------------------------------------------------------------------------------
+| `samlIdPRegisteredServiceMetadataCache`  | Manage and control the cache that holds metadata instances for SAML service providers. Note the cache is specific to the JVM memory of the CAS server node and it's **NOT** distributed or replicated. A `GET` operation produces the cached copy of the metadata for a given service provider, using the `serviceId` and `entityId` parameters. The `serviceId` parameter may be the numeric identifier for the registered service or its name. In case the service definition represents a metadata aggregate such as InCommon, the `entityId` parameter may be used to pinpoint and filter the exact entity within the aggregate. A `DELETE` operation will delete invalidate the metadata cache. If no parameters are provided, the metadata cache will be entirely invalidated. A `serviceId` parameter will force CAS to only invalidate the cached metadata instance for that service provider. The `serviceId` parameter may be the numeric identifier for the registered service or its name.
+
 ## Metadata Query Protocol
 
 CAS also supports the [Dynamic Metadata Query Protocol](https://spaces.internet2.edu/display/InCFederation/Metadata+Query+Protocol)
@@ -267,7 +275,8 @@ def Collection<MetadataResolver> run(final Object... args) {
     def registeredService = args[0]
     def samlConfigBean = args[1]
     def samlProperties = args[2]
-    def logger = args[3]
+    def criteriaSet = args[3]
+    def logger = args[4]
 
     /*
      Stuff happens where you build the relevant metadata resolver instance(s).
@@ -286,6 +295,7 @@ The parameters passed are as follows:
 | `registeredService`   | The object representing the corresponding service definition in the registry.
 | `samlConfigBean`      | The object representing the OpenSAML configuration class holding various builder and marshaller factory instances.
 | `samlProperties`      | The object responsible for capturing the CAS SAML IdP properties defined in the configuration.
+| `criteriaSet`         | The object responsible for capturing the criteria for metadata solution, if any.
 | `logger`              | The object responsible for issuing log messages such as `logger.info(...)`.
 
 ## Amazon S3

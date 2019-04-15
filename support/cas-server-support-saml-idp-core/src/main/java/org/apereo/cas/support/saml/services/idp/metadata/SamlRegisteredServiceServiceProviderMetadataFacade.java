@@ -50,6 +50,8 @@ public class SamlRegisteredServiceServiceProviderMetadataFacade {
 
     private final SPSSODescriptor ssoDescriptor;
     private final EntityDescriptor entityDescriptor;
+
+    @Getter
     private final MetadataResolver metadataResolver;
 
     /**
@@ -85,13 +87,12 @@ public class SamlRegisteredServiceServiceProviderMetadataFacade {
                                                                                     final SamlRegisteredService registeredService,
                                                                                     final String entityID,
                                                                                     final CriteriaSet criterions) {
-        LOGGER.debug("Adapting SAML metadata for CAS service [{}] issued by [{}]", registeredService.getName(), entityID);
-
+        LOGGER.trace("Adapting SAML metadata for CAS service [{}] issued by [{}]", registeredService.getName(), entityID);
         criterions.add(new EntityIdCriterion(entityID), true);
         LOGGER.debug("Locating metadata for entityID [{}] by attempting to run through the metadata chain...", entityID);
-        val chainingMetadataResolver = resolver.resolve(registeredService);
-        LOGGER.info("Resolved metadata chain for service [{}]. Filtering the chain by entity ID [{}]",
-            registeredService.getServiceId(), entityID);
+        val chainingMetadataResolver = resolver.resolve(registeredService, criterions);
+        LOGGER.info("Resolved metadata chain from [{}]. Filtering the chain by entity ID [{}]",
+            registeredService.getMetadataLocation(), entityID);
 
         val entityDescriptor = chainingMetadataResolver.resolveSingle(criterions);
         if (entityDescriptor == null) {
@@ -220,7 +221,7 @@ public class SamlRegisteredServiceServiceProviderMetadataFacade {
      * @return the single logout service or null
      */
     public SingleLogoutService getSingleLogoutService(final String binding) {
-        return getSingleLogoutServices().stream().filter(acs -> acs.getBinding().equals(binding)).findFirst().orElse(null);
+        return getSingleLogoutServices().stream().filter(acs -> acs.getBinding().equalsIgnoreCase(binding)).findFirst().orElse(null);
     }
 
     /**
@@ -230,7 +231,7 @@ public class SamlRegisteredServiceServiceProviderMetadataFacade {
      * @return the assertion consumer service
      */
     public AssertionConsumerService getAssertionConsumerService(final String binding) {
-        return getAssertionConsumerServices().stream().filter(acs -> acs.getBinding().equals(binding)).findFirst().orElse(null);
+        return getAssertionConsumerServices().stream().filter(acs -> acs.getBinding().equalsIgnoreCase(binding)).findFirst().orElse(null);
     }
 
     /**
@@ -260,9 +261,6 @@ public class SamlRegisteredServiceServiceProviderMetadataFacade {
         return getAssertionConsumerService(SAMLConstants.SAML2_ARTIFACT_BINDING_URI);
     }
 
-    public MetadataResolver getMetadataResolver() {
-        return this.metadataResolver;
-    }
 
     /**
      * Contains assertion consumer services ?

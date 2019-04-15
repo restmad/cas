@@ -1,13 +1,7 @@
 package org.apereo.cas.web.flow.resolver.impl;
 
-import org.apereo.cas.CentralAuthenticationService;
-import org.apereo.cas.authentication.AuthenticationServiceSelectionPlan;
-import org.apereo.cas.authentication.AuthenticationSystemSupport;
 import org.apereo.cas.authentication.MultifactorAuthenticationContextValidator;
-import org.apereo.cas.authentication.MultifactorAuthenticationProviderSelector;
 import org.apereo.cas.authentication.MultifactorAuthenticationUtils;
-import org.apereo.cas.services.ServicesManager;
-import org.apereo.cas.ticket.registry.TicketRegistrySupport;
 import org.apereo.cas.util.CollectionUtils;
 import org.apereo.cas.web.flow.CasWebflowConstants;
 import org.apereo.cas.web.flow.resolver.CasDelegatingWebflowEventResolver;
@@ -18,9 +12,6 @@ import lombok.extern.slf4j.Slf4j;
 import lombok.val;
 import org.apache.commons.lang3.StringUtils;
 import org.apereo.inspektr.audit.annotation.Audit;
-import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.context.ConfigurableApplicationContext;
-import org.springframework.web.util.CookieGenerator;
 import org.springframework.webflow.action.EventFactorySupport;
 import org.springframework.webflow.execution.Event;
 import org.springframework.webflow.execution.RequestContext;
@@ -42,21 +33,14 @@ public class RankedMultifactorAuthenticationProviderWebflowEventResolver extends
     private final CasDelegatingWebflowEventResolver casDelegatingWebflowEventResolver;
     private final MultifactorAuthenticationContextValidator authenticationContextValidator;
 
-    public RankedMultifactorAuthenticationProviderWebflowEventResolver(final AuthenticationSystemSupport authenticationSystemSupport,
-                                                                       final CentralAuthenticationService centralAuthenticationService,
-                                                                       final ServicesManager servicesManager,
-                                                                       final TicketRegistrySupport ticketRegistrySupport,
-                                                                       final CookieGenerator warnCookieGenerator,
-                                                                       final AuthenticationServiceSelectionPlan authenticationSelectionStrategies,
-                                                                       final MultifactorAuthenticationProviderSelector selector,
-                                                                       final MultifactorAuthenticationContextValidator authenticationContextValidator,
-                                                                       final CasDelegatingWebflowEventResolver casDelegatingWebflowEventResolver,
-                                                                       final ApplicationEventPublisher eventPublisher,
-                                                                       final ConfigurableApplicationContext applicationContext) {
-        super(authenticationSystemSupport, centralAuthenticationService, servicesManager, ticketRegistrySupport, warnCookieGenerator,
-            authenticationSelectionStrategies, selector, eventPublisher, applicationContext);
-        this.authenticationContextValidator = authenticationContextValidator;
+    public RankedMultifactorAuthenticationProviderWebflowEventResolver(
+        final CasWebflowEventResolutionConfigurationContext webflowEventResolutionConfigurationContext,
+        final CasDelegatingWebflowEventResolver casDelegatingWebflowEventResolver,
+        final MultifactorAuthenticationContextValidator authenticationContextValidator) {
+
+        super(webflowEventResolutionConfigurationContext);
         this.casDelegatingWebflowEventResolver = casDelegatingWebflowEventResolver;
+        this.authenticationContextValidator = authenticationContextValidator;
     }
 
     @Override
@@ -73,16 +57,17 @@ public class RankedMultifactorAuthenticationProviderWebflowEventResolver extends
             LOGGER.trace("Ticket-granting ticket is blank; proceed with flow normally.");
             return resumeFlow();
         }
-        val authentication = this.ticketRegistrySupport.getAuthenticationFrom(tgt);
+        val authentication = getWebflowEventResolutionConfigurationContext().getTicketRegistrySupport().getAuthenticationFrom(tgt);
         if (authentication == null) {
             LOGGER.trace("Ticket-granting ticket has no authentication and is blank; proceed with flow normally.");
             return resumeFlow();
         }
 
         val credential = WebUtils.getCredential(context);
-        val builder = this.authenticationSystemSupport.establishAuthenticationContextFromInitial(authentication, credential);
+        val builder = getWebflowEventResolutionConfigurationContext().getAuthenticationSystemSupport()
+            .establishAuthenticationContextFromInitial(authentication, credential);
 
-        LOGGER.debug("Recording and tracking initial authentication results in the request context");
+        LOGGER.trace("Recording and tracking initial authentication results in the request context");
         WebUtils.putAuthenticationResultBuilder(builder, context);
         WebUtils.putAuthentication(authentication, context);
 
@@ -93,15 +78,15 @@ public class RankedMultifactorAuthenticationProviderWebflowEventResolver extends
         }
 
         val id = event.getId();
-        LOGGER.debug("Resolved event from the initial authentication leg is [{}]", id);
+        LOGGER.trace("Resolved event from the initial authentication leg is [{}]", id);
 
         if (List.of(CasWebflowConstants.TRANSITION_ID_ERROR, CasWebflowConstants.TRANSITION_ID_AUTHENTICATION_FAILURE,
             CasWebflowConstants.TRANSITION_ID_SUCCESS, CasWebflowConstants.TRANSITION_ID_SUCCESS_WITH_WARNINGS).contains(id)) {
-            LOGGER.debug("Returning webflow event as [{}]", id);
+            LOGGER.trace("Returning webflow event as [{}]", id);
             return CollectionUtils.wrapSet(event);
         }
 
-        LOGGER.debug("Validating authentication context for event [{}] and service [{}]", id, service);
+        LOGGER.trace("Validating authentication context for event [{}] and service [{}]", id, service);
         val result = this.authenticationContextValidator.validate(authentication, id, service);
 
         if (result.getKey()) {

@@ -15,6 +15,8 @@ import org.springframework.binding.message.MessageBuilder;
 import org.springframework.binding.validation.ValidationContext;
 
 import javax.validation.constraints.Size;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 /**
  * Credential for authenticating with a username and password.
@@ -43,6 +45,8 @@ public class UsernamePasswordCredential implements Credential {
 
     private String source;
 
+    private Map<String, Object> customFields = new LinkedHashMap<>();
+
     public UsernamePasswordCredential(final String username, final String password) {
         this.username = username;
         this.password = password;
@@ -64,7 +68,7 @@ public class UsernamePasswordCredential implements Credential {
         }
 
         val messages = context.getMessageContext();
-        ApplicationContextProvider.getCasProperties().ifPresent(props -> {
+        ApplicationContextProvider.getCasConfigurationProperties().ifPresent(props -> {
             if (StringUtils.isBlank(source) && props.getAuthn().getPolicy().isSourceSelectionEnabled()) {
                 messages.addMessage(new MessageBuilder()
                     .error()

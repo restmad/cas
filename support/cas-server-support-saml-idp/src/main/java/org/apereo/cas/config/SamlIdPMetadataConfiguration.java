@@ -1,11 +1,18 @@
 package org.apereo.cas.config;
 
+import org.apereo.cas.CipherExecutor;
+import org.apereo.cas.audit.AuditableExecution;
+import org.apereo.cas.authentication.AuthenticationSystemSupport;
+import org.apereo.cas.authentication.principal.PrincipalFactoryUtils;
+import org.apereo.cas.authentication.principal.ServiceFactory;
+import org.apereo.cas.authentication.principal.WebApplicationService;
 import org.apereo.cas.configuration.CasConfigurationProperties;
 import org.apereo.cas.services.ServicesManager;
 import org.apereo.cas.support.saml.InMemoryResourceMetadataResolver;
 import org.apereo.cas.support.saml.OpenSamlConfigBean;
 import org.apereo.cas.support.saml.idp.metadata.generator.FileSystemSamlIdPMetadataGenerator;
 import org.apereo.cas.support.saml.idp.metadata.generator.SamlIdPMetadataGenerator;
+import org.apereo.cas.support.saml.idp.metadata.generator.SamlIdPMetadataGeneratorConfigurationContext;
 import org.apereo.cas.support.saml.idp.metadata.locator.FileSystemSamlIdPMetadataLocator;
 import org.apereo.cas.support.saml.idp.metadata.locator.SamlIdPMetadataLocator;
 import org.apereo.cas.support.saml.idp.metadata.writer.DefaultSamlIdPCertificateAndKeyWriter;
@@ -23,7 +30,11 @@ import org.apereo.cas.support.saml.services.idp.metadata.cache.resolver.UrlResou
 import org.apereo.cas.support.saml.services.idp.metadata.plan.DefaultSamlRegisteredServiceMetadataResolutionPlan;
 import org.apereo.cas.support.saml.services.idp.metadata.plan.SamlRegisteredServiceMetadataResolutionPlan;
 import org.apereo.cas.support.saml.services.idp.metadata.plan.SamlRegisteredServiceMetadataResolutionPlanConfigurator;
+import org.apereo.cas.support.saml.util.NonInflatingSaml20ObjectBuilder;
 import org.apereo.cas.support.saml.web.idp.metadata.SamlIdPMetadataController;
+import org.apereo.cas.support.saml.web.idp.metadata.SamlRegisteredServiceCachedMetadataEndpoint;
+import org.apereo.cas.support.saml.web.idp.profile.builders.SamlProfileObjectBuilder;
+import org.apereo.cas.support.saml.web.idp.profile.sso.SSOSamlPostProfileHandlerEndpoint;
 import org.apereo.cas.util.CollectionUtils;
 import org.apereo.cas.util.http.HttpClient;
 
@@ -32,9 +43,12 @@ import lombok.extern.slf4j.Slf4j;
 import lombok.val;
 import org.apache.commons.lang3.RegExUtils;
 import org.opensaml.saml.metadata.resolver.MetadataResolver;
+import org.opensaml.saml.saml2.core.Response;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.actuate.autoconfigure.endpoint.condition.ConditionalOnEnabledEndpoint;
+import org.springframework.boot.actuate.autoconfigure.health.ConditionalOnEnabledHealthIndicator;
 import org.springframework.boot.actuate.health.HealthIndicator;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -80,6 +94,22 @@ public class SamlIdPMetadataConfiguration {
     @Qualifier("shibboleth.OpenSAMLConfig")
     private ObjectProvider<OpenSamlConfigBean> openSamlConfigBean;
 
+    @Autowired
+    @Qualifier("registeredServiceAccessStrategyEnforcer")
+    private ObjectProvider<AuditableExecution> registeredServiceAccessStrategyEnforcer;
+
+    @Autowired
+    @Qualifier("defaultAuthenticationSystemSupport")
+    private ObjectProvider<AuthenticationSystemSupport> authenticationSystemSupport;
+
+    @Autowired
+    @Qualifier("webApplicationServiceFactory")
+    private ObjectProvider<ServiceFactory<WebApplicationService>> webApplicationServiceFactory;
+
+    @Autowired
+    @Qualifier("samlProfileSamlResponseBuilder")
+    private ObjectProvider<SamlProfileObjectBuilder<Response>> samlProfileSamlResponseBuilder;
+
     @Lazy
     @Bean(initMethod = "initialize", destroyMethod = "destroy")
     @DependsOn("samlIdPMetadataGenerator")
@@ -106,10 +136,16 @@ public class SamlIdPMetadataConfiguration {
     @SneakyThrows
     public SamlIdPMetadataGenerator samlIdPMetadataGenerator() {
         val idp = casProperties.getAuthn().getSamlIdp();
-        return new FileSystemSamlIdPMetadataGenerator(samlIdPMetadataLocator(),
-            samlSelfSignedCertificateWriter(),
-            idp.getEntityId(), this.resourceLoader,
-            casProperties.getServer().getPrefix(), idp.getScope());
+        val context = SamlIdPMetadataGeneratorConfigurationContext.builder()
+            .samlIdPMetadataLocator(samlIdPMetadataLocator())
+            .samlIdPCertificateAndKeyWriter(samlSelfSignedCertificateWriter())
+            .entityId(idp.getEntityId())
+            .resourceLoader(resourceLoader)
+            .casServerPrefix(casProperties.getServer().getPrefix())
+            .scope(idp.getScope())
+            .metadataCipherExecutor(CipherExecutor.noOpOfStringToString())
+            .build();
+        return new FileSystemSamlIdPMetadataGenerator(context);
     }
 
     @ConditionalOnMissingBean(name = "samlSelfSignedCertificateWriter")
@@ -177,8 +213,30 @@ public class SamlIdPMetadataConfiguration {
 
     @ConditionalOnMissingBean(name = "samlRegisteredServiceMetadataHealthIndicator")
     @Bean
+    @ConditionalOnEnabledHealthIndicator("samlRegisteredServiceMetadataHealthIndicator")
     public HealthIndicator samlRegisteredServiceMetadataHealthIndicator() {
         return new SamlRegisteredServiceMetadataHealthIndicator(samlRegisteredServiceMetadataResolvers(),
             servicesManager.getIfAvailable());
+    }
+
+    @Bean
+    @ConditionalOnEnabledEndpoint
+    public SamlRegisteredServiceCachedMetadataEndpoint samlRegisteredServiceCachedMetadataEndpoint() {
+        return new SamlRegisteredServiceCachedMetadataEndpoint(casProperties, defaultSamlRegisteredServiceCachingMetadataResolver(),
+            servicesManager.getIfAvailable(), registeredServiceAccessStrategyEnforcer.getIfAvailable(),
+            openSamlConfigBean.getIfAvailable());
+    }
+
+    @Bean
+    @ConditionalOnEnabledEndpoint
+    public SSOSamlPostProfileHandlerEndpoint ssoSamlPostProfileHandlerEndpoint() {
+        return new SSOSamlPostProfileHandlerEndpoint(casProperties,
+            servicesManager.getIfAvailable(),
+            authenticationSystemSupport.getIfAvailable(),
+            webApplicationServiceFactory.getIfAvailable(),
+            PrincipalFactoryUtils.newPrincipalFactory(),
+            samlProfileSamlResponseBuilder.getIfAvailable(),
+            defaultSamlRegisteredServiceCachingMetadataResolver(),
+            new NonInflatingSaml20ObjectBuilder(openSamlConfigBean.getIfAvailable()));
     }
 }

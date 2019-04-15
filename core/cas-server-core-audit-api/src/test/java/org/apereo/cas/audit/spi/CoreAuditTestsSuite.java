@@ -4,8 +4,7 @@ import org.apereo.cas.audit.spi.principal.ChainingAuditPrincipalIdProviderTests;
 import org.apereo.cas.audit.spi.resource.ServiceResourceResolverTests;
 import org.apereo.cas.audit.spi.resource.TicketAsFirstParameterResourceResolverTests;
 
-import org.junit.runner.RunWith;
-import org.junit.runners.Suite;
+import org.junit.platform.suite.api.SelectClasses;
 
 /**
  * This is {@link CoreAuditTestsSuite}.
@@ -13,12 +12,12 @@ import org.junit.runners.Suite;
  * @author Misagh Moayyed
  * @since 6.0.0
  */
-@RunWith(Suite.class)
-@Suite.SuiteClasses({
+@SelectClasses({
     AuditActionContextJsonSerializerTests.class,
     ServiceResourceResolverTests.class,
     TicketAsFirstParameterResourceResolverTests.class,
-    ChainingAuditPrincipalIdProviderTests.class
+    ChainingAuditPrincipalIdProviderTests.class,
+    FilterAndDelegateAuditTrailManagerTests.class
 })
 public class CoreAuditTestsSuite {
 }

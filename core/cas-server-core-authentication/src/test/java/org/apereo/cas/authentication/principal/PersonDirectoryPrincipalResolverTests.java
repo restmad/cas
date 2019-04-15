@@ -8,17 +8,17 @@ import org.apereo.cas.authentication.principal.resolvers.PersonDirectoryPrincipa
 import org.apereo.cas.util.CollectionUtils;
 
 import lombok.val;
+import org.apereo.services.persondir.IPersonAttributeDaoFilter;
 import org.apereo.services.persondir.support.StubPersonAttributeDao;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ExpectedException;
+import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Optional;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Test cases for {@link PersonDirectoryPrincipalResolver}.
@@ -26,12 +26,10 @@ import static org.junit.Assert.*;
  * @author Misagh Moayyed
  * @since 4.2
  */
+@SuppressWarnings("OptionalAssignedToNull")
 public class PersonDirectoryPrincipalResolverTests {
 
     private static final String ATTR_1 = "attr1";
-
-    @Rule
-    public ExpectedException thrown = ExpectedException.none();
 
     @Test
     public void verifyNullPrincipal() {
@@ -74,13 +72,14 @@ public class PersonDirectoryPrincipalResolverTests {
 
         val chain = new ChainingPrincipalResolver();
         chain.setChain(Arrays.asList(new EchoingPrincipalResolver(), resolver));
-        val attributes = new HashMap<String, Object>();
-        attributes.put("cn", "originalCN");
-        attributes.put(ATTR_1, "value1");
+        val attributes = new HashMap<String, List<Object>>();
+        attributes.put("cn", List.of("originalCN"));
+        attributes.put(ATTR_1, List.of("value1"));
         val p = chain.resolve(CoreAuthenticationTestUtils.getCredentialsWithSameUsernameAndPassword(),
             Optional.of(CoreAuthenticationTestUtils.getPrincipal(CoreAuthenticationTestUtils.CONST_USERNAME, attributes)),
             Optional.of(new SimpleTestUsernamePasswordAuthenticationHandler()));
-        assertEquals(p.getAttributes().size(), CoreAuthenticationTestUtils.getAttributeRepository().getPossibleUserAttributeNames().size() + 1);
+        assertEquals(p.getAttributes().size(),
+            CoreAuthenticationTestUtils.getAttributeRepository().getPossibleUserAttributeNames(IPersonAttributeDaoFilter.alwaysChoose()).size() + 1);
         assertTrue(p.getAttributes().containsKey(ATTR_1));
         assertTrue(p.getAttributes().containsKey("cn"));
         assertNotEquals("originalCN", p.getAttributes().get("cn"));
@@ -93,9 +92,11 @@ public class PersonDirectoryPrincipalResolverTests {
         val chain = new ChainingPrincipalResolver();
         chain.setChain(Arrays.asList(new EchoingPrincipalResolver(), resolver));
         val p = chain.resolve(CoreAuthenticationTestUtils.getCredentialsWithSameUsernameAndPassword(),
-            Optional.of(CoreAuthenticationTestUtils.getPrincipal(CoreAuthenticationTestUtils.CONST_USERNAME, Collections.singletonMap(ATTR_1, "value"))),
+            Optional.of(CoreAuthenticationTestUtils.getPrincipal(CoreAuthenticationTestUtils.CONST_USERNAME,
+                Collections.singletonMap(ATTR_1, List.of("value")))),
             Optional.of(new SimpleTestUsernamePasswordAuthenticationHandler()));
-        assertEquals(p.getAttributes().size(), CoreAuthenticationTestUtils.getAttributeRepository().getPossibleUserAttributeNames().size() + 1);
+        assertEquals(p.getAttributes().size(),
+            CoreAuthenticationTestUtils.getAttributeRepository().getPossibleUserAttributeNames(IPersonAttributeDaoFilter.alwaysChoose()).size() + 1);
         assertTrue(p.getAttributes().containsKey(ATTR_1));
     }
 
@@ -103,13 +104,15 @@ public class PersonDirectoryPrincipalResolverTests {
     public void verifyChainingResolverOverwritePrincipal() {
         val resolver = new PersonDirectoryPrincipalResolver(CoreAuthenticationTestUtils.getAttributeRepository());
         val resolver2 = new PersonDirectoryPrincipalResolver(
-            new StubPersonAttributeDao(Collections.singletonMap("principal", CollectionUtils.wrap("changedPrincipal"))), "principal");
+            new StubPersonAttributeDao(Collections.singletonMap("principal",
+                CollectionUtils.wrap("changedPrincipal"))), "principal");
 
         val chain = new ChainingPrincipalResolver();
         chain.setChain(Arrays.asList(new EchoingPrincipalResolver(), resolver, resolver2));
 
         val p = chain.resolve(CoreAuthenticationTestUtils.getCredentialsWithSameUsernameAndPassword(),
-            Optional.of(CoreAuthenticationTestUtils.getPrincipal("somethingelse", Collections.singletonMap(ATTR_1, "value"))),
+            Optional.of(CoreAuthenticationTestUtils.getPrincipal("somethingelse",
+                Collections.singletonMap(ATTR_1, List.of("value")))),
             Optional.of(new SimpleTestUsernamePasswordAuthenticationHandler()));
         assertNotNull(p);
         assertEquals("changedPrincipal", p.getId());
@@ -127,7 +130,7 @@ public class PersonDirectoryPrincipalResolverTests {
         chain.setChain(Arrays.asList(new EchoingPrincipalResolver(), resolver, resolver2));
 
         val p = chain.resolve(CoreAuthenticationTestUtils.getCredentialsWithSameUsernameAndPassword(),
-            Optional.of(CoreAuthenticationTestUtils.getPrincipal("somethingelse", Collections.singletonMap(ATTR_1, "value"))),
+            Optional.of(CoreAuthenticationTestUtils.getPrincipal("somethingelse", Collections.singletonMap(ATTR_1, List.of("value")))),
             Optional.of(new SimpleTestUsernamePasswordAuthenticationHandler()));
         assertNotNull(p);
         assertEquals("principal-id", p.getId());
@@ -142,7 +145,7 @@ public class PersonDirectoryPrincipalResolverTests {
         chain.setChain(Arrays.asList(new EchoingPrincipalResolver(), resolver, resolver2));
 
         val p = chain.resolve(CoreAuthenticationTestUtils.getCredentialsWithSameUsernameAndPassword(),
-            Optional.of(CoreAuthenticationTestUtils.getPrincipal("somethingelse", Collections.singletonMap(ATTR_1, "value"))),
+            Optional.of(CoreAuthenticationTestUtils.getPrincipal("somethingelse", Collections.singletonMap(ATTR_1, List.of("value")))),
             Optional.of(new SimpleTestUsernamePasswordAuthenticationHandler()));
         assertNotNull(p);
         assertEquals("test", p.getId());

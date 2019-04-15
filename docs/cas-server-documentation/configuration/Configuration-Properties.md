@@ -637,7 +637,7 @@ To determine whether an endpoint is available, the calculation order for all end
 2. If undefined, the global endpoint security is consulted from CAS settings.
 3. If undefined, the default built-in setting for the endpoint in CAS is consulted, which is typically `false` by default.
 
-All available endpoint ids [should be listed here](../monitoring/Monitoring-Statistics.html).
+A number of available endpoint ids [should be listed here](../monitoring/Monitoring-Statistics.html).
 
 Endpoints may also be mapped to custom arbitrary endpoints. For example, to remap the `health` endpoint to `healthcheck`, 
 specify the following settings:
@@ -645,6 +645,8 @@ specify the following settings:
 ```properties
 # management.endpoints.web.path-mapping.health=healthcheck
 ```
+
+### Health Endpoint
 
 The `health` endpoint may also be configured to show details using `management.endpoint.health.show-details` via the following conditions:
 
@@ -657,6 +659,29 @@ The `health` endpoint may also be configured to show details using `management.e
 ```properties
 # management.endpoint.health.show-details=never
 ```
+
+The results and details of the `health` endpoints are produced by a number of health indicator components that may monitor different systems, such as LDAP connection
+pools, database connections, etc. Such health indicators are turned off by default and may individually be controlled and turned on via the following settings:
+
+```properties
+# management.health.<name>.enabled=true
+# management.health.defaults.enabled=false 
+```
+
+The following health indicator names are available, given the presence of the appropriate CAS feature:
+
+| Health Indicator          | Description
+|----------------------|------------------------------------------------------------------------------------------
+| `memoryHealthIndicator`   | Reports back on the health status of CAS JVM memory usage, etc.
+| `sessionHealthIndicator`   | Reports back on the health status of CAS tickets and SSO session usage.
+| `duoSecurityHealthIndicator`   | Reports back on the health status of Duo Security APIs.
+| `ehcacheHealthIndicator`   | Reports back on the health status of Ehcache caches.
+| `hazelcastHealthIndicator`   | Reports back on the health status of Hazelcast caches.
+| `dataSourceHealthIndicator`   | Reports back on the health status of JDBC connections.
+| `pooledLdapConnectionFactoryHealthIndicator`   | Reports back on the health status of LDAP connection pools.
+| `memcachedHealthIndicator`   | Reports back on the health status of Memcached connections.
+| `mongoHealthIndicator`   | Reports back on the health status of MongoDb connections.
+| `samlRegisteredServiceMetadataHealthIndicator`   | Reports back on the health status of SAML2 service provider metadata sources.
 
 ### Endpoint Security
 
@@ -698,6 +723,24 @@ To learn more about this topic, [please review this guide](../monitoring/Configu
 # spring.boot.admin.client.metadata.user.password=
 ```
 
+### JavaMelody
+
+To learn more about this topic, [please review this guide](../monitoring/Configuring-Monitoring-JavaMelody.html).
+
+```properties
+# javamelody.enabled=true
+# javamelody.excluded-datasources=one,two,etc
+# javamelody.spring-monitoring-enabled=true
+# javamelody.init-parameters.log=true
+# javamelody.init-parameters.url-exclude-pattern=(/webjars/.*|/css/.*|/images/.*|/fonts/.*|/js/.*)
+# javamelody.init-parameters.monitoring-path=/monitoring
+
+# Control access via IP regular expression patterns
+# javamelody.init-parameters.allowed-addr-pattern=.+
+# Control access via Basic AuthN
+# javamelody.init-parameters.authorized-users=admin:pwd
+```
+
 ## Web Application Session
 
 Control the CAS web application session behavior
@@ -736,6 +779,14 @@ To learn more about this topic, [please review this guide](../ux/User-Interface-
 # the web application context, in addition to prefix specified
 # above which is handled via Thymeleaf.
 # cas.view.templatePrefixes[0]=file:///etc/cas/templates
+```
+
+## Custom Login Fields
+
+```properties
+# cas.view.customLoginFormFields.[field-name].messageBundleKey=
+# cas.view.customLoginFormFields.[field-name].required=true
+# cas.view.customLoginFormFields.[field-name].converter=
 ```
 
 ### CAS v1
@@ -808,7 +859,7 @@ and their results are cached and merged.
 # cas.authn.attributeRepository.expirationTime=30
 # cas.authn.attributeRepository.expirationTimeUnit=MINUTES
 # cas.authn.attributeRepository.maximumCacheSize=10000
-# cas.authn.attributeRepository.merger=REPLACE|ADD|MERGE
+# cas.authn.attributeRepository.merger=REPLACE|ADD|MULTIVALUED
 ```
 
 <div class="alert alert-info"><strong>Remember This</strong><p>Note that in certain cases,
@@ -869,6 +920,8 @@ The following merging strategies can be used to resolve conflicts when the same 
 Static attributes that need to be mapped to a hardcoded value belong here.
 
 ```properties
+# cas.authn.attributeRepository.stub.id=
+
 # cas.authn.attributeRepository.stub.attributes.uid=uid
 # cas.authn.attributeRepository.stub.attributes.displayName=displayName
 # cas.authn.attributeRepository.stub.attributes.cn=commonName
@@ -880,6 +933,9 @@ Static attributes that need to be mapped to a hardcoded value belong here.
 If you wish to directly and separately retrieve attributes from an LDAP source, LDAP settings for this feature are available [here](Configuration-Properties-Common.html#ldap-connection-settings) under the configuration key `cas.authn.attributeRepository.ldap[0]`.
 
 ```properties
+# cas.authn.attributeRepository.ldap[0].id=
+# cas.authn.attributeRepository.ldap[0].order=0
+
 # cas.authn.attributeRepository.ldap[0].attributes.uid=uid
 # cas.authn.attributeRepository.ldap[0].attributes.displayName=displayName
 # cas.authn.attributeRepository.ldap[0].attributes.cn=commonName
@@ -895,6 +951,7 @@ the following settings are then relevant:
 # cas.authn.attributeRepository.groovy[0].location=file:/etc/cas/attributes.groovy
 # cas.authn.attributeRepository.groovy[0].caseInsensitive=false
 # cas.authn.attributeRepository.groovy[0].order=0
+# cas.authn.attributeRepository.groovy[0].id=
 ```
 
 The Groovy script may be designed as:
@@ -921,6 +978,7 @@ the following settings are then relevant:
 ```properties
 # cas.authn.attributeRepository.json[0].location=file://etc/cas/attribute-repository.json
 # cas.authn.attributeRepository.json[0].order=0
+# cas.authn.attributeRepository.json[0].id=
 ```
 
 The format of the file may be:
@@ -942,6 +1000,12 @@ The format of the file may be:
 
 Retrieve attributes from a REST endpoint. RESTful settings for this feature are available [here](Configuration-Properties-Common.html#restful-integrations) under the configuration key `cas.authn.attributeRepository.rest[0]`.
 
+```properties
+# cas.authn.attributeRepository.rest[0].order=0
+# cas.authn.attributeRepository.rest[0].id=
+# cas.authn.attributeRepository.rest[0].caseInsensitive=false
+```
+
 The authenticating user id is passed in form of a request parameter under `username.` The response is expected
 to be a JSON map as such:
 
@@ -961,6 +1025,7 @@ The following settings are relevant:
 ```properties
 # cas.authn.attributeRepository.script[0].location=file:/etc/cas/script.groovy
 # cas.authn.attributeRepository.script[0].order=0
+# cas.authn.attributeRepository.script[0].id=
 # cas.authn.attributeRepository.script[0].caseInsensitive=false
 # cas.authn.attributeRepository.script[0].engineName=js|groovy|ruby|python
 ```
@@ -1020,6 +1085,7 @@ Retrieve attributes from a JDBC source. Database settings for this feature are a
 
 # cas.authn.attributeRepository.jdbc[0].singleRow=true
 # cas.authn.attributeRepository.jdbc[0].order=0
+# cas.authn.attributeRepository.jdbc[0].id=
 # cas.authn.attributeRepository.jdbc[0].requireAllAttributes=true
 # cas.authn.attributeRepository.jdbc[0].caseCanonicalization=NONE|LOWER|UPPER
 # cas.authn.attributeRepository.jdbc[0].queryType=OR|AND
@@ -1041,6 +1107,8 @@ To learn more about this topic, [please review this guide](../integration/Attrib
 
 ```properties
 # cas.authn.attributeRepository.grouper[0].enabled=true
+# cas.authn.attributeRepository.grouper[0].id=
+# cas.authn.attributeRepository.grouper[0].order=0
 ```
 
 You will also need to ensure `grouper.client.properties` is available on the classpath (i.e. `src/main/resources`)
@@ -1059,6 +1127,7 @@ This option will fetch attributes from a Couchbase database for a given CAS prin
 ```properties
 # cas.authn.attributeRepository.couchbase.usernameAttribute=username
 # cas.authn.attributeRepository.couchbase.order=0
+# cas.authn.attributeRepository.couchbase.id=
 ```
 
 ### Shibboleth Integrations
@@ -1373,6 +1442,7 @@ To learn more about this topic, [please review this guide](../installation/Surro
 
 ```properties
 # cas.authn.surrogate.separator=+
+# cas.authn.surrogate.tgt.timeToKillInSeconds=30
 ```
 
 Principal resolution and Person Directory settings for this feature 
@@ -1541,11 +1611,12 @@ Send text messaging using Clickatell.
 ### Nexmo
 
 Send text messaging using Nexmo.
+Nexmo needs at least apiSecret or signatureSecret field set.
 
 ```properties
 # cas.smsProvider.nexmo.apiToken=
 # cas.smsProvider.nexmo.apiSecret=
-# cas.smsProvider.nexmo.applicationId=CAS
+# cas.smsProvider.nexmo.signatureSecret=
 ```
 
 ### Amazon SNS
@@ -1597,24 +1668,15 @@ To learn more about this topic, [please review this guide](../installation/Cassa
 # cas.authn.cassandra.username=
 # cas.authn.cassandra.password=
 # cas.authn.cassandra.query=SELECT * FROM %s WHERE %s = ? ALLOW FILTERING
-
-# cas.authn.cassandra.protocolVersion=V1|V2|V3|V4
-# cas.authn.cassandra.keyspace=
-# cas.authn.cassandra.contactPoints=localhost1,localhost2
-# cas.authn.cassandra.localDc=
-# cas.authn.cassandra.retryPolicy=DEFAULT_RETRY_POLICY|DOWNGRADING_CONSISTENCY_RETRY_POLICY|FALLTHROUGH_RETRY_POLICY
-# cas.authn.cassandra.compression=LZ4|SNAPPY|NONE
-# cas.authn.cassandra.consistencyLevel=ANY|ONE|TWO|THREE|QUORUM|LOCAL_QUORUM|ALL|EACH_QUORUM|LOCAL_SERIAL|SERIAL|LOCAL_ONE
-# cas.authn.cassandra.serialConsistencyLevel=ANY|ONE|TWO|THREE|QUORUM|LOCAL_QUORUM|ALL|EACH_QUORUM|LOCAL_SERIAL|SERIAL|LOCAL_ONE
-# cas.authn.cassandra.maxConnections=10
-# cas.authn.cassandra.coreConnections=1
-# cas.authn.cassandra.maxRequestsPerConnection=1024
-# cas.authn.cassandra.connectTimeoutMillis=5000
-# cas.authn.cassandra.readTimeoutMillis=5000
-# cas.authn.cassandra.port=9042
 # cas.authn.cassandra.name=
 # cas.authn.cassandra.order=
 ```
+
+Common Cassandra settings for this feature are available [here](Configuration-Properties-Common.html#cassandra-configuration) under the configuration key `cas.authn.cassandra`.
+
+Principal transformation settings for this feature are available [here](Configuration-Properties-Common.html#authentication-principal-transformation) under the configuration key `cas.authn.cassandra`. 
+
+Password encoding settings for this feature are available [here](Configuration-Properties-Common.html#password-encoding) under the configuration key `cas.authn.cassandra`.
 
 ## Digest Authentication
 
@@ -1698,7 +1760,7 @@ Database settings for this feature are available [here](Configuration-Properties
 
 Principal transformation settings for this feature are available [here](Configuration-Properties-Common.html#authentication-principal-transformation) under the configuration key `cas.authn.jdbc.query[0]`.
 
-Password encoding  settings for this feature are available [here](Configuration-Properties-Common.html#password-encoding) under the configuration key `cas.authn.jdbc.query[0]`.
+Password encoding settings for this feature are available [here](Configuration-Properties-Common.html#password-encoding) under the configuration key `cas.authn.jdbc.query[0]`.
 
 ```properties
 # cas.authn.jdbc.query[0].credentialCriteria=
@@ -1908,29 +1970,27 @@ Principal resolution and Person Directory settings for this feature are availabl
 ### System Settings
 
 ```properties
-# cas.authn.spnego.kerberosConf=
-# cas.authn.spnego.loginConf=
-# cas.authn.spnego.kerberosRealm=EXAMPLE.COM
-# cas.authn.spnego.kerberosDebug=true
-# cas.authn.spnego.useSubjectCredsOnly=false
-# cas.authn.spnego.kerberosKdc=172.10.1.10
+# cas.authn.spnego.system.kerberosConf=
+# cas.authn.spnego.system.loginConf=
+# cas.authn.spnego.system.kerberosRealm=EXAMPLE.COM
+# cas.authn.spnego.system.kerberosDebug=true
+# cas.authn.spnego.system.useSubjectCredsOnly=false
+# cas.authn.spnego.system.kerberosKdc=172.10.1.10
 ```
 
 ### Spnego Authentication Settings
 
 ```properties
-# cas.authn.spnego[0].cachePolicy=600
-# cas.authn.spnego[0].jcifsDomainController=
-# cas.authn.spnego[0].jcifsDomain=
-# cas.authn.spnego[0].jcifsPassword=
-# cas.authn.spnego[0].jcifsUsername=
-# cas.authn.spnego[0].jcifsServicePassword=
-# cas.authn.spnego[0].timeout=300000
-# cas.authn.spnego[0].jcifsServicePrincipal=HTTP/cas.example.com@EXAMPLE.COM
-# cas.authn.spnego[0].jcifsNetbiosWins=
+# cas.authn.spnego.properties[0].cachePolicy=600
+# cas.authn.spnego.properties[0].jcifsDomainController=
+# cas.authn.spnego.properties[0].jcifsDomain=
+# cas.authn.spnego.properties[0].jcifsPassword=
+# cas.authn.spnego.properties[0].jcifsUsername=
+# cas.authn.spnego.properties[0].jcifsServicePassword=
+# cas.authn.spnego.properties[0].timeout=300000
+# cas.authn.spnego.properties[0].jcifsServicePrincipal=HTTP/cas.example.com@EXAMPLE.COM
+# cas.authn.spnego.properties[0].jcifsNetbiosWins=
 
-# cas.authn.spnego[0].name=
-# cas.authn.spnego[0].order=
 ```
 
 ### SPNEGO Client Selection Strategy
@@ -2140,15 +2200,16 @@ X.509 principal resolution can act on the following principal types:
 | `SERIAL_NO`             | Resolve the principal by the serial number with a configurable <strong>radix</strong>, ranging from 2 to 36. If <code>radix</code> is <code>16</code>, then the serial number could be filled with leading zeros to even the number of digits.
 | `SERIAL_NO_DN`          | Resolve the principal by serial number and issuer dn.
 | `SUBJECT`               | Resolve the principal by extracting one or more attribute values from the certificate subject DN and combining them with intervening delimiters.
-| `SUBJECT_ALT_NAME`      | Resolve the principal by the subject alternative name extension.
+| `SUBJECT_ALT_NAME`      | Resolve the principal by the subject alternative name extension. (type: otherName)
 | `SUBJECT_DN`            | The default type; Resolve the principal by the certificate's subject dn.
 | `CN_EDIPI`              | Resolve the principal by the Electronic Data Interchange Personal Identifier (EDIPI) from the Common Name.
+| `RFC822_EMAIL`          | Resolve the principal by the [RFC822 Name](https://tools.ietf.org/html/rfc5280#section-4.2.1.6) (aka E-mail address) type of subject alternative name field. 
 
-For the ```CN_EDIPI``` and ```SUBJECT_ALT_NAME``` principal resolvers, since not all certificates have those attributes, 
+For the ```CN_EDIPI```,```SUBJECT_ALT_NAME```, and ```RFC822_EMAIL``` principal resolvers, since not all certificates have those attributes, 
 you may specify the following property in order to have a different attribute from the certificate used as the principal.  
 If no alternative attribute is specified then the principal will be null and CAS will fail auth or use a different authenticator.
 ```properties
-# cas.authn.x509.alternatePrincipalAttribute=subjectDn|sigAlgOid|subjectX500Principal
+# cas.authn.x509.alternatePrincipalAttribute=subjectDn|sigAlgOid|subjectX500Principal|x509Rfc822Email
 ```
 
 ### CRL Fetching / Revocation
@@ -2230,10 +2291,13 @@ To fetch CRLs, the following options are available:
 # cas.authn.x509.serialNo.principalHexSNZeroPadding=false
 
 # SUBJECT_ALT_NAME
-# cas.authn.x509.subjectAltName.alternatePrincipalAttribute=[sigAlgOid|subjectDn|subjectX500Principal]
+# cas.authn.x509.subjectAltName.alternatePrincipalAttribute=[sigAlgOid|subjectDn|subjectX500Principal|x509Rfc822Email]
 
 # CN_EDIPI 
-# cas.authn.x509.cnEdipi.alternatePrincipalAttribute=[sigAlgOid|subjectDn|subjectX500Principal]
+# cas.authn.x509.cnEdipi.alternatePrincipalAttribute=[sigAlgOid|subjectDn|subjectX500Principal|x509Rfc822Email]
+
+# RFC822_EMAIL 
+# cas.authn.x509.rfc822Email.alternatePrincipalAttribute=[sigAlgOid|subjectDn|subjectX500Principal]
 ```
 
 ### X509 Certificate Extraction
@@ -2357,8 +2421,8 @@ To learn more about this topic, [please review this guide](../mfa/Configuring-Mu
 # cas.authn.mfa.globalProviderId=mfa-duo
 
 # Activate MFA globally based on authentication metadata attributes
-# cas.authn.mfa.globalAuthenticationAttributeNameTriggers=memberOf,eduPersonPrimaryAffiliation
-# cas.authn.mfa.globalAuthenticationAttributeValueRegex=faculty|staff
+# cas.authn.mfa.globalAuthenticationAttributeNameTriggers=customAttributeName
+# cas.authn.mfa.globalAuthenticationAttributeValueRegex=customRegexValue
 
 # Activate MFA globally based on principal attributes
 # cas.authn.mfa.globalPrincipalAttributeNameTriggers=memberOf,eduPersonPrimaryAffiliation
@@ -2542,6 +2606,12 @@ Configuration settings for this feature are available [here](Configuration-Prope
 # cas.authn.mfa.gauth.mongo.tokenCollection=MongoDbGoogleAuthenticatorTokenRepository
 ```
 
+#### Google Authenticator Redis
+
+ Configuration settings for this feature are available [here](Configuration-Properties-Common.html#redis-configuration) 
+ under the configuration key `cas.authn.mfa.gauth`.  
+ 
+ 
 #### Google Authenticator JPA
 
 Database settings for this feature are available [here](Configuration-Properties-Common.html#database-settings) under the configuration key `cas.authn.mfa.gauth.jpa`.
@@ -2757,6 +2827,8 @@ To learn more about this topic, [please review this guide](../installation/Confi
 # cas.authn.samlIdp.authenticationContextClassMappings[0]=urn:oasis:names:tc:SAML:2.0:ac:classes:SomeClassName->mfa-duo
 # cas.authn.samlIdp.authenticationContextClassMappings[1]=https://refeds.org/profile/mfa->mfa-gauth
 
+# cas.authn.samlIdp.attributeFriendlyNames[0]=urn:oid:1.3.6.1.4.1.5923.1.1.1.6->eduPersonPrincipalName
+  
 # cas.authn.samlIdp.attributeQueryProfileEnabled=true
 ```
 
@@ -2781,6 +2853,7 @@ A given attribute that is to be encoded in the final SAML response may contain a
 # cas.authn.samlIdp.metadata.failFast=true
 # cas.authn.samlIdp.metadata.privateKeyAlgName=RSA
 # cas.authn.samlIdp.metadata.requireValidMetadata=true
+# cas.authn.samlIdp.metadata.forceMetadataRefresh=true
 
 # cas.authn.samlIdp.metadata.basicAuthnUsername=
 # cas.authn.samlIdp.metadata.basicAuthnPassword=
@@ -2872,6 +2945,14 @@ under the configuration key `cas.authn.samlIdp.metadata.amazonS3`.
 # cas.authn.samlIdp.ticket.samlAttributeQueryCacheStorageName=samlAttributeQueryCache
 ```
 
+### SAML Profiles
+
+```properties
+# cas.authn.samlIdp.profile.slo.urlDecodeRedirectRequest=false
+# cas.authn.samlIdp.profile.sso.urlDecodeRedirectRequest=false
+# cas.authn.samlIdp.profile.ssoPostSimpleSign.urlDecodeRedirectRequest=false
+```
+
 ## SAML SPs
 
 Allow CAS to register and enable a number of built-in SAML service provider integrations.
@@ -2881,56 +2962,74 @@ To learn more about this topic, [please review this guide](../integration/Config
 
 Configuration settings for all SAML2 service providers are [available here](Configuration-Properties-Common.html#saml2-service-provider-integrations).
 
-| Service Provider                       | Configuration Key | Attributes
-|---------------------------|----------------------------------------------------------
-| Gitlab                | `cas.samlSp.gitlab` | `last_name`,`first_name`,`name`
-| Hipchat               | `cas.samlSp.hipchat` | `last_name`,`first_name`,`title`
-| Dropbox               | `cas.samlSp.dropbox` | `mail`
-| OpenAthens            | `cas.samlSp.openAthens` | `email`, `eduPersonPrincipalName`
-| Egnyte                | `cas.samlSp.egnyte` | N/A
-| EverBridge            | `cas.samlSp.everBridge` | N/A
-| Simplicity            | `cas.samlSp.simplicity` | N/A
-| App Dynamics          | `cas.samlSp.appDynamics` | `User.OpenIDName`, `User.email`, `User.fullName`, `AccessControl`, `Groups-Membership`
-| Yuja                  | `cas.samlSp.yuja` | N/A
-| Simplicity            | `cas.samlSp.simplicity` | N/A
-| New Relic             | `cas.samlSp.newRelic` | N/A
-| Sunshine State Education and Research Computing Alliance               | `cas.samlSp.sserca` | N/A
-| CherWell               | `cas.samlSp.cherWell` | N/A
-| FAMIS                 | `cas.samlSp.famis` | N/A
-| Bynder                | `cas.samlSp.bynder` | N/A
-| Web Advisor           | `cas.samlSp.webAdvisor` | `uid`
-| Adobe Creative Cloud  | `cas.samlSp.adobeCloud` | `firstName`, `lastName`, `email`
-| Securing The Human    | `cas.samlSp.sansSth` | `firstName`, `lastName`, `scopedUserId`, `department`, `reference`, `email`
-| Easy IEP              | `cas.samlSp.easyIep` | `employeeId`
-| Infinite Campus       | `cas.samlSp.infiniteCampus` | `employeeId`
-| Slack                 | `cas.samlSp.slack` | `User.Email`, `User.Username`, `first_name`, `last_name`, `employeeId`
-| Zendesk               | `cas.samlSp.zendesk` | `organization`, `tags`, `phone`, `role`, `email`
-| Gartner               | `cas.samlSp.gartner` | `urn:oid:2.5.4.42`, `urn:oid:2.5.4.4`, `urn:oid:0.9.2342.19200300.100.1.3`
-| Arc GIS               | `cas.samlSp.arcGIS` | `arcNameId`, `mail`, `givenName`
+| Service Provider      | Configuration Key     | Attributes
+|-----------------------|----------------------------------------------------------
+| Gitlab                | `cas.samlSp.gitlab`   | `last_name`,`first_name`,`name`
+| Hipchat               | `cas.samlSp.hipchat`  | `last_name`,`first_name`,`title`
+| Dropbox               | `cas.samlSp.dropbox`  | `mail`
+| OpenAthens            | `cas.samlSp.openAthens`   | `email`, `eduPersonPrincipalName`
+| Egnyte                | `cas.samlSp.egnyte`       | N/A
+| EverBridge            | `cas.samlSp.everBridge`   | N/A
+| Simplicity            | `cas.samlSp.simplicity`   | N/A
+| App Dynamics          | `cas.samlSp.appDynamics`  | `User.OpenIDName`, `User.email`, `User.fullName`, `AccessControl`, `Groups-Membership`
+| Yuja                  | `cas.samlSp.yuja`         | N/A
+| Simplicity            | `cas.samlSp.simplicity`   | N/A
+| New Relic             | `cas.samlSp.newRelic`     | N/A
+| Sunshine State Education & Research Computing Alliance | `cas.samlSp.sserca` | N/A
+| CherWell              | `cas.samlSp.cherWell`         | N/A
+| FAMIS                 | `cas.samlSp.famis`            | N/A
+| Bynder                | `cas.samlSp.bynder`           | N/A
+| Web Advisor           | `cas.samlSp.webAdvisor`       | `uid`
+| Adobe Creative Cloud  | `cas.samlSp.adobeCloud`       | `firstName`, `lastName`, `email`
+| Securing The Human    | `cas.samlSp.sansSth`          | `firstName`, `lastName`, `scopedUserId`, `department`, `reference`, `email`
+| Easy IEP              | `cas.samlSp.easyIep`          | `employeeId`
+| Infinite Campus       | `cas.samlSp.infiniteCampus`   | `employeeId`
+| Slack                 | `cas.samlSp.slack`        | `User.Email`, `User.Username`, `first_name`, `last_name`, `employeeId`
+| Zendesk               | `cas.samlSp.zendesk`      | `organization`, `tags`, `phone`, `role`, `email`
+| Gartner               | `cas.samlSp.gartner`      | `urn:oid:2.5.4.42`, `urn:oid:2.5.4.4`, `urn:oid:0.9.2342.19200300.100.1.3`
+| Arc GIS               | `cas.samlSp.arcGIS`       | `arcNameId`, `mail`, `givenName`
 | Benefit Focus         | `cas.samlSp.benefitFocus` | `benefitFocusUniqueId`
-| Office365             | `cas.samlSp.office365` | `IDPEmail`, `ImmutableID`, `scopedImmutableID`
-| SAManage              | `cas.samlSp.saManage` | `mail`
-| Salesforce            | `cas.samlSp.salesforce` | `eduPersonPrincipalName`
-| Workday               | `cas.samlSp.workday` | N/A
-| Academic Works            | `cas.samlSp.academicWorks` | `displayName`
-| ZOOM                      | `cas.samlSp.zoom` | `mail`, `sn`, `givenName`
-| Evernote                  | `cas.samlSp.evernote` | `email`
-| Tableau                   | `cas.samlSp.tableau` | `username`
-| Asana                     | `cas.samlSp.asana` | `email`
-| Box                       | `cas.samlSp.box` | `email`, `firstName`, `lastName`
-| Service Now               | `cas.samlSp.serviceNow` | `eduPersonPrincipalName`
-| Net Partner               | `cas.samlSp.netPartner` | `studentId`
-| Webex                     | `cas.samlSp.webex` | `firstName`, `lastName`
-| InCommon                  |  `cas.samlSp.inCommon` | `eduPersonPrincipalName`
-| Amazon                    |  `cas.samlSp.amazon` | `awsRoles`, `awsRoleSessionName`
-| Concur Solutions          | `cas.samlSp.concurSolutions` | `email`
-| PollEverywhere            | `cas.samlSp.pollEverywhere` | `email`
-| BlackBaud                 | `cas.samlSp.blackBaud` | `email`, `eduPersonPrincipalName`
-| GiveCampus                | `cas.samlSp.giveCampus` | `email`, `givenName`, `surname`, `displayName`
-| WarpWire                  | `cas.samlSp.warpWire` | `email`, `givenName`, `eduPersonPrincipalName`, `surname`, `eduPersonScopedAffiliation`, `employeeNumber`
-| WarpWire                  | `cas.samlSp.rocketChat` | `email`, `cn`, `username`
-
-**Note**: For InCommon and other metadata aggregates, multiple entity ids can be specified to filter [the InCommon metadata](https://spaces.internet2.edu/display/InCFederation/Metadata+Aggregates). EntityIds can be regular expression patterns and are mapped to CAS' `serviceId` field in the registry. The signature location MUST BE the public key used to sign the metadata.
+| Office365             | `cas.samlSp.office365`    | `IDPEmail`, `ImmutableID`
+| SAManage              | `cas.samlSp.saManage`     | `mail`
+| Salesforce            | `cas.samlSp.salesforce`   | `eduPersonPrincipalName`
+| Workday               | `cas.samlSp.workday`      | N/A
+| Academic Works            | `cas.samlSp.academicWorks`    | `displayName`
+| ZOOM                      | `cas.samlSp.zoom`             | `mail`, `sn`, `givenName`
+| Evernote                  | `cas.samlSp.evernote`         | `email`
+| Tableau                   | `cas.samlSp.tableau`          | `username`
+| Asana                     | `cas.samlSp.asana`            | `email`
+| Box                       | `cas.samlSp.box`              | `email`, `firstName`, `lastName`
+| Service Now               | `cas.samlSp.serviceNow`   | `eduPersonPrincipalName`
+| Net Partner               | `cas.samlSp.netPartner`   | `studentId`
+| Webex                     | `cas.samlSp.webex`        | `firstName`, `lastName`
+| InCommon                  | `cas.samlSp.inCommon`     | `eduPersonPrincipalName`
+| Amazon                    | `cas.samlSp.amazon`       | `awsRoles`, `awsRoleSessionName`
+| Concur Solutions          | `cas.samlSp.concurSolutions`  | `email`
+| PollEverywhere            | `cas.samlSp.pollEverywhere`   | `email`
+| DocuSign                  | `cas.samlSp.docuSign`   | `email`, `givenName`, `surname`, `employeeNumber`
+| SafariOnline              | `cas.samlSp.safariOnline`   | `email`, `givenName`, `surname`, `employeeNumber`,`eduPersonAffiliation`
+| BlackBaud                 | `cas.samlSp.blackBaud`    | `email`, `eduPersonPrincipalName`
+| GiveCampus                | `cas.samlSp.giveCampus`   | `email`, `givenName`, `surname`, `displayName`
+| WarpWire                  | `cas.samlSp.warpWire`     | `email`, `givenName`, `eduPersonPrincipalName`, `surname`, `eduPersonScopedAffiliation`, `employeeNumber`
+| RocketChat                | `cas.samlSp.rocketChat`   | `email`, `cn`, `username`
+| ArmsSoftware              | `cas.samlSp.armsSoftware` | `email`, `uid`, `eduPersonPrincipalName`
+| TopHat                    | `cas.samlSp.topHat` | `email`, `eduPersonPrincipalName`
+| Academic HealthPlans      | `cas.samlSp.academicHealthPlans` | `email`, `givenName`, `surname`, `studentId`
+| Confluence                | `cas.samlSp.confluence` | `email`, `givenName`, `surname`, `uid`, `displayName`
+| JIRA                      | `cas.samlSp.jira` | `email`, `givenName`, `surname`, `uid`, `displayName`
+| CrashPlan                 | `cas.samlSp.crashPlan` | `email`, `givenName`, `surname`
+| Emma                      | `cas.samlSp.emma` | `email`, `givenName`, `surname`
+| Qualtrics                 | `cas.samlSp.qualtrics` | `email`, `givenName`, `surname`, `employeeNumber`, `eduPersonPrincipalName`
+| NeoGov                    | `cas.samlSp.neoGov` | `email`, `ImmutableID`
+| Zimbra                    | `cas.samlSp.zimbra` | `email`
+| PagerDuty                 | `cas.samlSp.pagerDuty` | `email`
+| CraniumCafe               | `cas.samlSp.craniumCafe` | `email`, `eduPersonPrincipalName`, `displayName`, `eduPersonScopedAffiliation`, `studentId`
+| CCC Central               | `cas.samlSp.cccco` | `email`, `eduPersonPrincipalName`, `displayName`, `eduPersonScopedAffiliation`, `uid`, `givenName`, `commonName`, `surname`, `eduPersonPrimaryffiliation`
+                                
+**Note**: For InCommon and other metadata aggregates, multiple entity ids can be specified to 
+filter [the InCommon metadata](https://spaces.internet2.edu/display/InCFederation/Metadata+Aggregates). EntityIds 
+can be regular expression patterns and are mapped to 
+CAS' `serviceId` field in the registry. The signature location MUST BE the public key used to sign the metadata.
 
 ## OpenID Connect
 
@@ -2960,7 +3059,11 @@ Allow CAS to become an OpenID Connect provider (OP). To learn more about this to
 # cas.authn.oidc.grantTypesSupported=authorization_code,password,client_credentials,refresh_token
 # cas.authn.oidc.idTokenSigningAlgValuesSupported=none,RS256
 # cas.authn.oidc.tokenEndpointAuthMethodsSupported=client_secret_basic,client_secret_post
+```
 
+### OpenID Connect Scopes & Claims
+
+```properties
 # Define custom scopes and claims
 # cas.authn.oidc.userDefinedScopes.scope1=cn,givenName,photos,customAttribute
 # cas.authn.oidc.userDefinedScopes.scope2=cn,givenName,photos,customAttribute2
@@ -2969,6 +3072,19 @@ Allow CAS to become an OpenID Connect provider (OP). To learn more about this to
 # cas.authn.oidc.claimsMap.given_name=custom-given-name
 # cas.authn.oidc.claimsMap.preferred_username=global-user-attribute
 ```
+
+### OpenID Connect WebFinger
+
+#### WebFinger UserInfo via Groovy
+
+```properties
+# cas.authn.oidc.webfinger.userInfo.groovy.location=classpath:/webfinger.groovy
+```
+
+#### WebFinger UserInfo via REST
+
+RESTful settings for this feature are available [here](Configuration-Properties-Common.html#restful-integrations) 
+under the configuration key `cas.authn.oidc.webfinger.userInfo.rest`.
 
 ## Pac4j Delegated AuthN
 
@@ -2999,11 +3115,19 @@ The following external identity providers share [common blocks of settings](Conf
 
 See below for other identity providers such as CAS, SAML2 and more.
 
-### Signing & Encryption
+### Provisioning
 
-The signing and encryption keys [are both JWKs](Configuration-Properties-Common.html#signing--encryption) of size `512` and `256`.
-The encryption algorithm is set to `AES_128_CBC_HMAC_SHA_256`. Signing & encryption settings for this feature are available [here](Configuration-Properties-Common.html#signing--encryption) under `${configurationKey}.cookie`.
+Provision and create established user profiles to identity stores.
 
+#### Groovy
+
+```properties
+# cas.authn.pac4j.provisioning.groovy.location=file:/etc/cas/config/Provisioner.groovy
+```
+
+#### REST
+
+RESTful settings for this feature are available [here](Configuration-Properties-Common.html#restful-integrations) under the configuration key `cas.authn.pac4j.provisioning.rest`.
 
 ### Google
 
@@ -3201,6 +3325,15 @@ To learn more about this topic, [please review this guide](../installation/OAuth
 # cas.authn.oauth.userProfileViewType=NESTED|FLAT
 ```
 
+### OAuth2 JWT Access Tokens
+
+```properties
+# cas.authn.oauth.accessToken.crypto.encryptionEnabled=true
+# cas.authn.oauth.accessToken.crypto.signingEnabled=true
+```
+
+The signing key and the encryption key [are both JWKs](Configuration-Properties-Common.html#signing--encryption) of size `512` and `256`. Signing & encryption settings for this feature are available [here](Configuration-Properties-Common.html#signing--encryption) under the configuration key `cas.authn.oauth.accessToken`.
+
 ### OAuth2 UMA
 
 To learn more about this topic, [please review this guide](../installation/OAuth-OpenId-Authentication.html).
@@ -3331,6 +3464,7 @@ To learn more about this topic, [please review this guide](../installation/Audit
 # cas.audit.alternateServerAddrHeaderName=
 # cas.audit.alternateClientAddrHeaderName=X-Forwarded-For
 # cas.audit.useServerHostAddress=false
+# cas.audit.supportedActions=AUTHENTICATION_.+,OTHER_\w+_ACTION
 ```
 
 ### Slf4j Audits
@@ -3363,6 +3497,21 @@ Store audit logs inside a MongoDb database.
 Common configuration settings for this feature are available 
 [here](Configuration-Properties-Common.html#mongodb-configuration) under the configuration key `cas.audit`.
 
+```properties
+# cas.audit.mongo.asynchronous=true
+```
+
+### Redis Audits
+
+Store audit logs inside a Redis database.
+
+Common configuration settings for this feature are available 
+[here](Configuration-Properties-Common.html#redis-configuration) under the configuration key `cas.audit`.
+
+```properties
+# cas.audit.redis.asynchronous=true
+```
+
 ### CouchDb Audits
 
 Store audit logs inside a CouchDb database.
@@ -3376,6 +3525,10 @@ Store audit logs inside a Couchbase database.
 
 Database settings for this feature are available [here](Configuration-Properties-Common.html#couchbase-integration-settings) 
 under the configuration key `cas.audit.couchbase`.
+
+```properties
+# cas.audit.couchbase.asynchronous=true
+```
 
 ### Database Audits
 
@@ -3394,6 +3547,10 @@ under the configuration key `cas.audit.jdbc`.
 
 Store audit logs inside a database. RESTful settings for this feature are 
 available [here](Configuration-Properties-Common.html#restful-integrations) under the configuration key `cas.audit.rest`.
+
+```properties
+# cas.audit.rest.asynchronous=true
+```
 
 ## Sleuth Distributed Tracing
 
@@ -3642,6 +3799,22 @@ to locate YAML service definitions, decide how those resources should be found.
 
 To learn more about this topic, [please review this guide](../services/YAML-Service-Management.html).
 
+### Git Service Registry
+
+Works with git repository to fetch and manage service registry definitions.
+
+```properties
+# cas.serviceRegistry.git.repositoryUrl=https://github.com/repository
+# cas.serviceRegistry.git.branchesToClone=master
+# cas.serviceRegistry.git.activeBranch=master
+# cas.serviceRegistry.git.username=
+# cas.serviceRegistry.git.password=
+# cas.serviceRegistry.git.cloneDirectory=file:/tmp/cas-service-registry
+# cas.serviceRegistry.git.pushChanges=false
+```
+
+To learn more about this topic, [please review this guide](../services/Git-Service-Management.html).
+
 ### RESTful Service Registry
 
 To learn more about this topic, [please review this guide](../services/REST-Service-Management.html).
@@ -3685,6 +3858,12 @@ under the configuration key `cas.serviceRegistry.dynamoDb`.
 ```properties
 # cas.serviceRegistry.dynamoDb.tableName=DynamoDbCasServices
 ```
+
+### Cassandra Service Registry
+
+To learn more about this topic, [please review this guide](../services/Cassandra-Service-Management.html).
+
+Common Cassandra settings for this feature are available [here](Configuration-Properties-Common.html#cassandra-configuration) under the configuration key `cas.serviceRegistry.cassandra`.
 
 ### MongoDb Service Registry
 
@@ -3797,6 +3976,14 @@ Common Hazelcast settings for this feature are available [here](Configuration-Pr
 ```
 
 Signing & encryption settings for this registry are available [here](Configuration-Properties-Common.html#signing--encryption) under the configuration key `cas.ticket.registry.hazelcast`.
+
+### Cassandra Ticket Registry
+
+To learn more about this topic, [please review this guide](../ticketing/Cassandra-Ticket-Registry.html).
+
+Common Cassandra settings for this feature are available [here](Configuration-Properties-Common.html#cassandra-configuration) under the configuration key `cas.ticket.registry.cassandra`.
+
+Signing & encryption settings for this registry are available [here](Configuration-Properties-Common.html#signing--encryption) under the configuration key `cas.ticket.registry.cassandra`.
 
 ### Infinispan Ticket Registry
 
@@ -4156,7 +4343,7 @@ The signing and encryption keys [are both JWKs](Configuration-Properties-Common.
 
 #### Spring Webflow Client-Side Session
 
-The encryption key must be randomly-generated string of size f`16`. The signing key [is a JWK](Configuration-Properties-Common.html#signing--encryption) of size `512`.
+The encryption key must be randomly-generated string of size `16`. The signing key [is a JWK](Configuration-Properties-Common.html#signing--encryption) of size `512`.
 
 Signing & encryption settings for this feature are available [here](Configuration-Properties-Common.html#signing--encryption) under the configuration key `cas.webflow`.
 
@@ -4244,6 +4431,12 @@ To learn more about this topic, [please review this guide](../webflow/Webflow-Cu
 # cas.acceptableUsagePolicy.scope=GLOBAL|AUTHENTICATION
 ```
 
+#### Groovy
+
+```properties
+# cas.acceptableUsagePolicy.groovy.location=file:/etc/cas/config/aup.groovy
+```
+
 #### REST
 
 RESTful settings for this feature are available [here](Configuration-Properties-Common.html#restful-integrations) under the configuration key `cas.acceptableUsagePolicy.rest`.
@@ -4254,6 +4447,10 @@ If AUP is controlled via JDBC, decide how choices should be remembered back insi
 
 ```properties
 # cas.acceptableUsagePolicy.jdbc.tableName=usage_policies_table
+# cas.acceptableUsagePolicy.jdbc.aupColumn=
+# cas.acceptableUsagePolicy.jdbc.principalIdColumn=username
+# cas.acceptableUsagePolicy.jdbc.principalIdAttribute=
+# cas.acceptableUsagePolicy.jdbc.sqlUpdateAUP=UPDATE %s SET %s=true WHERE %s=?
 ```
 
 #### CouchDb
@@ -4283,6 +4480,7 @@ To learn more about this topic, [please review this guide](../protocol/REST-Prot
 # cas.rest.attributeValue=
 # cas.rest.headerAuth=
 # cas.rest.bodyAuth=
+# cas.rest.tlsClientAuth=
 ```
 
 ## Metrics

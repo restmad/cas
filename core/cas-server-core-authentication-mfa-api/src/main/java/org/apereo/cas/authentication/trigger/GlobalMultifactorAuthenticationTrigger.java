@@ -3,6 +3,7 @@ package org.apereo.cas.authentication.trigger;
 import org.apereo.cas.authentication.Authentication;
 import org.apereo.cas.authentication.AuthenticationException;
 import org.apereo.cas.authentication.MultifactorAuthenticationProvider;
+import org.apereo.cas.authentication.MultifactorAuthenticationProviderAbsentException;
 import org.apereo.cas.authentication.MultifactorAuthenticationTrigger;
 import org.apereo.cas.authentication.MultifactorAuthenticationUtils;
 import org.apereo.cas.authentication.principal.Service;
@@ -49,7 +50,7 @@ public class GlobalMultifactorAuthenticationTrigger implements MultifactorAuthen
 
         val globalProviderId = casProperties.getAuthn().getMfa().getGlobalProviderId();
         if (StringUtils.isBlank(globalProviderId)) {
-            LOGGER.debug("No value could be found for request parameter [{}]", globalProviderId);
+            LOGGER.trace("No value could be found for for the global provider id");
             return Optional.empty();
         }
         LOGGER.debug("Attempting to globally activate [{}]", globalProviderId);
@@ -57,7 +58,7 @@ public class GlobalMultifactorAuthenticationTrigger implements MultifactorAuthen
         val providerMap = MultifactorAuthenticationUtils.getAvailableMultifactorAuthenticationProviders(ApplicationContextProvider.getApplicationContext());
         if (providerMap.isEmpty()) {
             LOGGER.error("No multifactor authentication providers are available in the application context to handle [{}]", globalProviderId);
-            throw new AuthenticationException();
+            throw new AuthenticationException(new MultifactorAuthenticationProviderAbsentException());
         }
 
         val providerFound = MultifactorAuthenticationUtils.resolveProvider(providerMap, globalProviderId);

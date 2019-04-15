@@ -109,6 +109,14 @@ your CAS overlay to be able to resolve dependencies:
 
 To see the relevant list of CAS properties, please [review this guide](../configuration/Configuration-Properties.html#saml-idp).
 
+### Administrative Endpoints
+
+The following endpoints are provided by CAS:
+ 
+| Endpoint          | Description
+|-------------------|-------------------------------------------------------------------------------------------------------
+| `samlPostProfileResponse` | Obtain a SAML2 response payload by supplying a `username`, `password` and `entityId` as parameters.
+
 ### SAML Services
 
 SAML relying parties and services must be registered within the CAS service registry similar to the following example:
@@ -131,6 +139,7 @@ The following fields are available for SAML services:
 | `metadataLocation`                   | Location of service metadata defined from system files, classpath, directories or URL resources.
 | `metadataSignatureLocation`          | Location of the metadata signing certificate/public key to validate the metadata which must be defined from system files or classpath. If defined, will enforce the `SignatureValidationFilter` validation filter on metadata.
 | `metadataExpirationDuration`         | If defined, will expire metadata in the cache after the indicated duration which will force CAS to retrieve and resolve the metadata again.
+| `requireSignedRoot`                  | Whether incoming metadata's root element is required to be signed. Default is `true`.
 | `signAssertions`                     | Whether assertions should be signed. Default is `false`.
 | `signResponses`                      | Whether responses should be signed. Default is `true`.
 | `encryptAssertions`                  | Whether assertions should be encrypted. Default is `false`.
@@ -145,7 +154,9 @@ The following fields are available for SAML services:
 | `metadataCriteriaRemoveRolelessEntityDescriptors` | Controls whether to keep entity descriptors that contain no roles. Default is `true`.
 | `attributeNameFormats` | Map that defines attribute name formats for a given attribute name to be encoded in the SAML response.
 | `attributeFriendlyNames` | Map that defines attribute friendly names for a given attribute name to be encoded in the SAML response.
+| `attributeValueTypes` | Map that defines the type of attribute values for a given attribute name.
 | `nameIdQualifier` | If defined, will overwrite the `NameQualifier` attribute of the produced subject's name id.
+| `issuerEntityId` | If defined, will override the issue value with the given identity provider entity id. This may be useful in cases where CAS needs to maintain multiple identity provider entity ids.
 | `assertionAudiences` | Comma-separated list of audience urls to include in the assertion, in the addition to the entity id.
 | `serviceProviderNameIdQualifier` | If defined, will overwrite the `SPNameQualifier` attribute of the produced subject's name id.
 | `skipGeneratingAssertionNameId` | Whether generation of a name identifier should be skipped for assertions. Default is `false`.
@@ -235,6 +246,46 @@ specially if the original attribute is *mapped* to a different name.
   "attributeFriendlyNames": {
     "@class": "java.util.HashMap",
     "urn:oid:2.5.4.42": "friendly-name-to-use"
+  }
+}
+```
+
+### Attribute Value Types
+
+By default, attribute value blocks that are created in the final SAML2 response do not carry any type information in the encoded XML.
+You can, if necessary, enforce a particular type for an attribute value per the requirements of the SAML2 service provider, if any.
+An example of an attribute that is encoded with specific type information would be:
+
+```xml
+<saml2:Attribute FriendlyName="givenName" Name="givenName" NameFormat="urn:oasis:names:tc:SAML:2.0:attrname-format:uri">
+    <saml2:AttributeValue xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="xsd:string">HelloWorld</saml2:AttributeValue>
+</saml2:Attribute>
+```
+
+The following attribute value types are supported:
+
+| Type              | Description
+|-------------------|---------------------------------------------------------------------------------------
+| `XSString`        | Mark the attribute value type as `string`.
+| `XSURI`           | Mark the attribute value type as `uri`.
+| `XSBoolean`       | Mark the attribute value type as `boolean`.
+| `XSInteger`       | Mark the attribute value type as `integer`.
+| `XSDateTime`      | Mark the attribute value type as `datetime` .
+| `XSBase64Binary`  | Mark the attribute value type as `base64Binary`.
+| `XSObject`        | Skip the attribute value type and serialize the value as a complex XML object/POJO.
+
+...where the types for each attribute would be defined as such:
+ 
+```json
+{
+  "@class": "org.apereo.cas.support.saml.services.SamlRegisteredService",
+  "serviceId" : "the-entity-id-of-the-sp",
+  "name": "SAML Service",
+  "metadataLocation" : "../../sp-metadata.xml",
+  "id": 100001,
+  "attributeValueTypes": {
+    "@class": "java.util.HashMap",
+    "<attribute-name>": "<attribute-value-type>"
   }
 }
 ```

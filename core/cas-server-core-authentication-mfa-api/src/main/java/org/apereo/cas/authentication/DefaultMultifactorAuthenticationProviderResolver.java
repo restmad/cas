@@ -11,6 +11,7 @@ import org.springframework.webflow.execution.Event;
 import org.springframework.webflow.execution.RequestContext;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -28,7 +29,6 @@ import java.util.function.Predicate;
 public class DefaultMultifactorAuthenticationProviderResolver implements MultifactorAuthenticationProviderResolver {
     private final MultifactorAuthenticationProviderSelector multifactorAuthenticationProviderSelector;
 
-
     @Override
     public Set<Event> resolveEventViaAuthenticationAttribute(final Authentication authentication,
                                                              final Collection<String> attributeNames,
@@ -42,7 +42,7 @@ public class DefaultMultifactorAuthenticationProviderResolver implements Multifa
 
     @Override
     public Set<Event> resolveEventViaAttribute(final Principal principal,
-                                               final Map<String, Object> attributesToExamine,
+                                               final Map<String, List<Object>> attributesToExamine,
                                                final Collection<String> attributeNames,
                                                final RegisteredService service,
                                                final Optional<RequestContext> context,
@@ -86,7 +86,7 @@ public class DefaultMultifactorAuthenticationProviderResolver implements Multifa
                                                         final Collection<MultifactorAuthenticationProvider> providers,
                                                         final Predicate<String> predicate) {
         if (attributeNames.isEmpty()) {
-            LOGGER.debug("No attribute names are provided to trigger a multifactor authentication provider via [{}]", getName());
+            LOGGER.trace("No attribute names are provided to trigger a multifactor authentication provider via [{}]", getName());
             return null;
         }
 

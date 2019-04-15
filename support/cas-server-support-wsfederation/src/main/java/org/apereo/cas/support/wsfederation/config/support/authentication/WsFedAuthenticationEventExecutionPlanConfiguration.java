@@ -16,7 +16,8 @@ import org.apereo.cas.support.wsfederation.authentication.handler.support.WsFede
 import org.apereo.cas.support.wsfederation.authentication.principal.WsFederationCredentialsToPrincipalResolver;
 import org.apereo.cas.support.wsfederation.web.WsFederationCookieCipherExecutor;
 import org.apereo.cas.support.wsfederation.web.WsFederationCookieGenerator;
-import org.apereo.cas.web.support.DefaultCasCookieValueManager;
+import org.apereo.cas.web.cookie.CasCookieBuilder;
+import org.apereo.cas.web.support.mgmr.DefaultCasCookieValueManager;
 
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
@@ -97,7 +98,7 @@ public class WsFedAuthenticationEventExecutionPlanConfiguration {
         return WsFederationAttributeMutator.noOp();
     }
 
-    private static WsFederationCookieGenerator getCookieGeneratorForWsFederationConfig(final WsFederationDelegationProperties wsfed) {
+    private static CasCookieBuilder getCookieGeneratorForWsFederationConfig(final WsFederationDelegationProperties wsfed) {
         val cookie = wsfed.getCookie();
         val cipher = getCipherExecutorForWsFederationConfig(cookie);
         return new WsFederationCookieGenerator(new DefaultCasCookieValueManager(cipher, cookie), cookie);
@@ -153,18 +154,22 @@ public class WsFedAuthenticationEventExecutionPlanConfiguration {
                 } else {
                     val configurations = wsFederationConfigurations();
                     val cfg = configurations.stream()
-                        .filter(c -> c.getIdentityProviderUrl().equals(wsfed.getIdentityProviderUrl()))
+                        .filter(c -> c.getIdentityProviderUrl().equalsIgnoreCase(wsfed.getIdentityProviderUrl()))
                         .findFirst()
-                        .orElseThrow(() -> new RuntimeException("Unable to find configuration for identity provider " + wsfed.getIdentityProviderUrl()));
+                        .orElseThrow(() -> new RuntimeException("Unable to find configuration for identity provider "
+                            + wsfed.getIdentityProviderUrl()));
 
                     val principal = wsfed.getPrincipal();
-                    val principalAttribute = StringUtils.defaultIfBlank(principal.getPrincipalAttribute(), personDirectory.getPrincipalAttribute());
+                    val principalAttribute = StringUtils.defaultIfBlank(principal.getPrincipalAttribute(),
+                        personDirectory.getPrincipalAttribute());
                     val r = new WsFederationCredentialsToPrincipalResolver(attributeRepository.getIfAvailable(),
                         wsfedPrincipalFactory(),
                         principal.isReturnNull() || personDirectory.isReturnNull(),
                         principalAttribute,
                         cfg,
-                        personDirectory.isUseExistingPrincipalId() || principal.isUseExistingPrincipalId());
+                        personDirectory.isUseExistingPrincipalId() || principal.isUseExistingPrincipalId(),
+                        principal.isAttributeResolutionEnabled(),
+                        org.springframework.util.StringUtils.commaDelimitedListToSet(principal.getActiveAttributeRepositoryIds()));
                     plan.registerAuthenticationHandlerWithPrincipalResolver(handler, r);
                 }
             });
